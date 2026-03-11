@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="4dp"
+    app:strokeWidth="1dp"
+    app:strokeColor="#DDDDDD">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Image Container with Overlay Icons -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="100dp">
+
+            <!-- Main Image -->
+            <ImageView
+                android:id="@+id/cardImage"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:src="@drawable/sample_image_20"
+                />
+
+            <!-- Top Start Icon -->
+            <TextView
+                android:id="@+id/iconTopStart"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|start"
+                android:layout_margin="8dp"
+                android:text="Grade I"
+                android:padding="2dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:textSize="8sp"
+                android:fontFamily="@font/inter_black"
+                android:background="@drawable/round_bg_2"
+                 />
+
+            <!-- Top End Icon -->
+            <FrameLayout
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_gravity="top|end"
+                android:layout_margin="8dp"
+                android:background="@drawable/round_bg">
+
+                <ImageView
+                    android:id="@+id/iconTopEnd"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:paddingStart="1dp"
+                    android:paddingTop="1dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/check_circle"/>
+
+
+            </FrameLayout>
+        </FrameLayout>
+        <!-- Content -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="8dp">
+
+            <!-- Status -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Status: "
+                    android:textSize="12sp"
+                    android:fontFamily="@font/inter_regular" />
+
+                <TextView
+                    android:id="@+id/cardStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Good Quality"
+                    android:textSize="14sp"
+                    android:textColor="#1C1B1F"
+                    android:textAlignment="textEnd"
+                    android:fontFamily="@font/inter_bold" />
+            </LinearLayout>
+
+            <!-- Confidence -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Confidence: "
+                    android:textSize="12sp"
+                    android:fontFamily="@font/inter_regular" />
+
+                <TextView
+                    android:id="@+id/cardConfidence"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="89%"
+                    android:textSize="14sp"
+                    android:textColor="#1C1B1F"
+                    android:textAlignment="textEnd"
+                    android:fontFamily="@font/inter_bold"
+                    />
+            </LinearLayout>
+
+            <!-- Date -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Date: "
+                    android:textSize="12sp"
+                    android:fontFamily="@font/inter_regular" />
+
+                <TextView
+                    android:id="@+id/cardDate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="01/20/25"
+                    android:textSize="14sp"
+                    android:textColor="#1C1B1F"
+                    android:fontFamily="@font/inter_bold" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </LinearLayout>
+
+
+
+
+</com.google.android.material.card.MaterialCardView>

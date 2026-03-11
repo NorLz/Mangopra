@@ -1,0 +1,77 @@
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center"
+    android:padding="8dp"
+    android:weightSum="5">
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnPrev"
+        android:layout_width="wrap_content"
+        android:layout_height="40dp"
+        android:layout_marginEnd="4dp"
+        android:backgroundTint="#D9D9D9"
+        android:padding="4dp"
+        android:text="Prev"
+        android:textColor="#1C1B1F"
+        app:iconGravity="textStart"
+        app:icon="@drawable/arrow_small_left"
+        app:iconTint="#1C1B1F"
+        app:cornerRadius="8dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="#1C1B1F"
+        />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnNext"
+        android:layout_width="wrap_content"
+        android:layout_height="40dp"
+        android:layout_marginStart="8dp"
+        android:backgroundTint="#D9D9D9"
+        android:padding="4dp"
+        android:text="Next"
+        android:textColor="#1C1B1F"
+        app:icon="@drawable/arrow_small_right"
+        app:iconTint="#1C1B1F"
+        app:iconGravity="textEnd"
+        app:cornerRadius="8dp"
+        app:strokeWidth="1dp"
+        app:strokeColor="#1C1B1F"
+        />
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="60dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="3dp"
+        android:gravity="right"
+        app:boxStrokeWidth="2dp">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etPageNumber"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="4dp"
+            android:layout_marginStart="8dp"
+            android:text="10"
+            android:gravity="center"
+            android:fontFamily="@font/inter_bold"
+            android:inputType="number"
+            android:textColor="#1B1C1F"
+            android:textSize="16sp"/>
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <TextView
+        android:id="@+id/tvTotalPages"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="left"
+        android:text="of 38"
+        android:layout_marginStart="8dp"
+        android:textColor="#000000"
+        android:textSize="16sp"
+        android:layout_marginEnd="8dp"/>
+
+</LinearLayout>

@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/resultsBottomSheetRoot"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bottom_sheet_bg"
+    android:paddingTop="12dp"
+    android:paddingBottom="16dp">
+
+    <!-- Drag Handle -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/drag_handle_bg" />
+
+    <!-- ================= HEADER (UPDATED) ================= -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="16dp"
+        android:paddingBottom="12dp">
+
+        <!-- File Info Row -->
+        <LinearLayout
+            android:id="@+id/layoutFileInfo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <!-- File Icon -->
+            <ImageView
+                android:id="@+id/imgFileIcon"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/beige_bg"
+                android:padding="6dp"
+                android:src="@drawable/document_circle_arrow_up"
+                app:tint="#1C1B1F"/>
+
+            <!-- File Name -->
+            <TextView
+                android:id="@+id/tvFileName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="copra-image.jpeg"
+                android:textSize="14sp"
+                android:fontFamily="@font/inter_extrabold"
+                android:layout_marginStart="8dp"/>
+        </LinearLayout>
+
+        <!-- Close Button -->
+        <ImageView
+            android:id="@+id/btnCloseResults"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_alignParentEnd="true"
+            android:src="@drawable/cross_small"
+            app:tint="#1C1B1F"/>
+    </RelativeLayout>
+
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#E0E0E0"/>
+
+    <!-- ================= QUALITY SUMMARY ================= -->
+    <LinearLayout
+        android:id="@+id/layoutSummarySection"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="8dp">
+
+        <!-- ================= GRADE I CARD ================= -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardGrade1"
+            android:layout_width="0dp"
+            android:layout_height="120dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="4dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="#E0E0E0">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <!-- LEFT COLORED STRIP -->
+                <View
+                    android:layout_width="6dp"
+                    android:layout_height="match_parent"
+                    android:background="#4CAF50"/>
+
+                <!-- CONTENT CONTAINER -->
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_marginStart="12dp"
+                    >
+
+                    <!-- Icon Circle -->
+
+                    <!-- Big Number -->
+
+                    <ImageView
+                        android:id="@+id/imgGrade1Icon"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:layout_alignParentEnd="true"
+                        android:layout_alignParentTop="true"
+                        android:layout_margin="0dp"
+                        android:padding="10dp"
+                        android:src="@drawable/check_circle"
+                        app:tint="#2E7D32"/>
+
+                    <TextView
+                        android:id="@+id/tvGrade1Total"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerInParent="true"
+                        android:text="3"
+                        android:textSize="40sp"
+                        android:textColor="#1C1B1F"
+                        android:textStyle="bold"/>
+
+                    <!-- Description -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_below="@id/tvGrade1Total"
+                        android:layout_centerHorizontal="true"
+                        android:text="Number of detected"
+                        android:fontFamily="@font/inter_bold"
+                        android:textSize="8sp"
+                        android:textColor="#7D7D7D"
+                        />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_below="@id/tvGrade1Total"
+                        android:layout_marginTop="10dp"
+                        android:layout_centerHorizontal="true"
+                        android:text="Grade I copra"
+                        android:textSize="8sp"
+                        android:textStyle="bold"
+                        android:textColor="#4CAF50"/>
+
+                </RelativeLayout>
+
+            </RelativeLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+
+        <!-- ================= GRADE II CARD ================= -->
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardGrade2"
+            android:layout_width="0dp"
+            android:layout_height="120dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="4dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="#E0E0E0">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"/>
+
+                <!-- LEFT COLORED STRIP -->
+                <View
+                    android:layout_width="6dp"
+                    android:layout_height="match_parent"
+                    android:background="#FB9F1F"/>
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_marginStart="12dp"
+                    >
+
+                    <ImageView
+                        android:id="@+id/imgGrade2Icon"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:layout_alignParentEnd="true"
+                        android:layout_alignParentTop="true"
+                        android:layout_margin="0dp"
+                        android:padding="10dp"
+                        android:src="@drawable/warning__1_"
+                        app:tint="#F9A825"/>
+
+                    <TextView
+                        android:id="@+id/tvGrade2Total"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_centerInParent="true"
+                        android:text="3"
+                        android:textSize="40sp"
+                        android:textStyle="bold"
+                        android:textColor="#1C1B1F"/>
+
+                    <TextView
+                        android:id="@+id/tvGrade2Desc"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_below="@id/tvGrade2Total"
+                        android:layout_centerHorizontal="true"
+                        android:text="Number of detected"
+                        android:fontFamily="@font/inter_bold"
+                        android:textSize="8sp"
+                        android:textColor="#7D7D7D"
+                        />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_below="@id/tvGrade2Desc"
+                        android:layout_centerHorizontal="true"
+                        android:text="Grade II copra"
+                        android:textSize="8sp"
+                        android:textStyle="bold"
+                        android:textColor="#F9A825"/>
+                </RelativeLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+
+        <!-- ================= GRADE III CARD ================= -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardGrade3"
+            android:layout_width="0dp"
+            android:layout_height="120dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="4dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="#E0E0E0">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"/>
+
+            <!-- LEFT COLORED STRIP -->
+            <View
+                android:layout_width="6dp"
+                android:layout_height="match_parent"
+                android:background="#FB5A48"/>
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginStart="12dp"
+                >
+
+                <ImageView
+                    android:id="@+id/imgGrade3Icon"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_alignParentEnd="true"
+                    android:layout_alignParentTop="true"
+                    android:layout_margin="0dp"
+                    android:padding="10dp"
+                    android:src="@drawable/block__1_"
+                    app:tint="#FB5A48"/>
+
+                <TextView
+                    android:id="@+id/tvGrade3Total"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:text="3"
+                    android:textSize="40sp"
+                    android:textStyle="bold"
+                    android:textColor="#1C1B1F"/>
+
+                <TextView
+                    android:id="@+id/tvGrade3Desc"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_below="@id/tvGrade3Total"
+                    android:layout_centerHorizontal="true"
+                    android:text="Number of detected"
+                    android:fontFamily="@font/inter_bold"
+                    android:textSize="8sp"
+                    android:textColor="#7D7D7D"
+                    />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_below="@id/tvGrade3Desc"
+                    android:layout_centerHorizontal="true"
+                    android:text="Grade III copra"
+                    android:fontFamily="@font/inter_bold"
+                    android:textSize="8sp"
+                    android:textStyle="bold"
+                    android:textColor="#F9A825"/>
+            </RelativeLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+    </LinearLayout>
+
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#E0E0E0"/>
+
+    <!-- Section Title -->
+    <TextView
+        android:id="@+id/tvDetectedTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Detected Copra Images"
+        android:fontFamily="@font/inter_bold"
+        android:textSize="14sp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="8dp"/>
+
+    <!-- RecyclerView -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvDetectedImages"
+        android:layout_width="match_parent"
+        android:layout_height="300dp"
+        android:paddingHorizontal="16dp"
+        android:clipToPadding="false"/>
+
+    <include layout="@layout/item_pagination_foooter"/>
+
+</LinearLayout>

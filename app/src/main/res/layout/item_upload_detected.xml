@@ -1,0 +1,51 @@
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="100dp"
+    android:layout_height="120dp"
+    android:layout_margin="6dp"
+    android:radius="16dp"
+    android:background="#FEFEFE"
+    android:elevation="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <ImageView
+            android:id="@+id/imgDetected"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:scaleType="centerCrop"
+            android:src="@drawable/sample_copra"/>
+
+        <!-- Grade Row (Text + Icon Side by Side) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:padding="6dp">
+
+            <ImageView
+                android:id="@+id/imgGradeIcon"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="6dp"
+                android:src="@drawable/check_circle" />
+
+            <TextView
+                android:id="@+id/tvDetectedGrade"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Grade I"
+                android:fontFamily="@font/inter_bold"
+                android:textSize="12sp"
+                android:textColor="#1C1B1F"/>
+
+        </LinearLayout>
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>
