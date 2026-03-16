@@ -655,14 +655,9 @@ class ScanActivity : AppCompatActivity() {
 
         dialog.show()
 
-        val bottomSheet = dialog.findViewById<View>(
-            com.google.android.material.R.id.design_bottom_sheet
-        )
-        bottomSheet?.let {
-            val behavior = BottomSheetBehavior.from(it)
-            behavior.peekHeight = (resources.displayMetrics.heightPixels * 0.5).toInt()
-            behavior.state = BottomSheetBehavior.STATE_COLLAPSED
-        }
+        val behavior = dialog.behavior
+        behavior.peekHeight = (resources.displayMetrics.heightPixels * 0.5).toInt()
+        behavior.state = BottomSheetBehavior.STATE_COLLAPSED
     }
 
     @OptIn(ExperimentalGetImage::class)
