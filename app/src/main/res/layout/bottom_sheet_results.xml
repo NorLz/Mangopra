@@ -271,6 +271,18 @@
         android:layout_marginTop="12dp"
         android:layout_marginBottom="8dp"/>
 
+    <TextView
+        android:id="@+id/tvEmptyState"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="8dp"
+        android:gravity="center"
+        android:text="No copra detected yet."
+        android:textColor="#666666"
+        android:textSize="14sp"
+        android:visibility="gone"/>
+
     <!-- RecyclerView -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerImages"

@@ -26,6 +26,9 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3",
 androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
 androidx-core-animation = { group = "androidx.core", name = "core-animation", version.ref = "coreAnimation" }
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "cameraView" }
+tensorflow-lite-support = { group = "org.tensorflow", name = "tensorflow-lite-support", version = "0.5.0" }
+tensorflow-lite-metadata = { group = "org.tensorflow", name = "tensorflow-lite-metadata", version = "0.5.0" }
+tensorflow-lite-gpu = { group = "org.tensorflow", name = "tensorflow-lite-gpu", version = "2.17.0" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
