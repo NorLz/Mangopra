@@ -12,6 +12,7 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.media.Image
 import android.os.Bundle
+import android.os.SystemClock
 import android.util.Log
 import android.view.View
 import android.widget.ImageView
@@ -39,6 +40,7 @@ import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -63,13 +65,35 @@ class ScanActivity : AppCompatActivity() {
     private var cameraProvider: ProcessCameraProvider? = null
     private var imageAnalysis: ImageAnalysis? = null
     private lateinit var analysisExecutor: ExecutorService
+    private lateinit var classificationExecutor: ExecutorService
     private var detectorModel: BestFloat32Metadata? = null
+    private var classifier: CopraClassifier? = null
     private var loggedOutputShape = false
 
     private val frameLock = Any()
     private var latestFrameBitmap: Bitmap? = null
     private var latestFrameDetections: List<FrameDetection> = emptyList()
     private var capturedDetections: MutableList<CapturedDetection> = mutableListOf()
+    @Volatile
+    private var captureSessionId: Int = 0
+    @Volatile
+    private var isActivityDestroyed = false
+    @Volatile
+    private var acceptClassificationCallbacks = false
+
+    private var resultsDialog: BottomSheetDialog? = null
+    private var resultsSummarySection: View? = null
+    private var resultsRecycler: RecyclerView? = null
+    private var resultsEmptyState: TextView? = null
+    private var resultsBtnPrev: MaterialButton? = null
+    private var resultsBtnNext: MaterialButton? = null
+    private var resultsPageInput: TextInputEditText? = null
+    private var resultsTotalPagesText: TextView? = null
+    private var resultsGrade1Count: TextView? = null
+    private var resultsGrade2Count: TextView? = null
+    private var resultsGrade3Count: TextView? = null
+    private var resultsAdapter: CapturedImageAdapter? = null
+    private var resultsCurrentPage = 1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,6 +104,7 @@ class ScanActivity : AppCompatActivity() {
         frozenFrameView = findViewById(R.id.frozenFrameView)
         btnScan = findViewById(R.id.btnScan)
         analysisExecutor = Executors.newSingleThreadExecutor()
+        classificationExecutor = Executors.newSingleThreadExecutor()
 
         try {
             detectorModel = BestFloat32Metadata.newInstance(this)
@@ -87,6 +112,7 @@ class ScanActivity : AppCompatActivity() {
             Toast.makeText(this, "Failed to initialize detection model.", Toast.LENGTH_SHORT).show()
             Log.e(TAG, "Model initialization failed", e)
         }
+        initializeClassifier()
 
         val btnUpload = findViewById<MaterialButton>(R.id.btnGallery)
         btnUpload.setOnClickListener {
@@ -106,7 +132,8 @@ class ScanActivity : AppCompatActivity() {
                 }
 
                 ScanState.SCANNING -> {
-                    captureCurrentDetections()
+                    val sessionId = captureCurrentDetections()
+                    enqueueClassificationJobs(sessionId)
                     stopLiveDetection(freeze = true)
                     state = ScanState.CAPTURED
                     setScanButtonActive(false)
@@ -133,8 +160,15 @@ class ScanActivity : AppCompatActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        acceptClassificationCallbacks = true
+    }
+
     override fun onStop() {
         super.onStop()
+        acceptClassificationCallbacks = false
+        captureSessionId += 1
         if (state == ScanState.SCANNING) {
             stopLiveDetection(freeze = false)
             state = ScanState.IDLE
@@ -144,10 +178,17 @@ class ScanActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        isActivityDestroyed = true
+        acceptClassificationCallbacks = false
+        captureSessionId += 1
+        dismissResultsBottomSheet()
         stopLiveDetection(freeze = false)
         detectorModel?.close()
         detectorModel = null
+        classifier?.close()
+        classifier = null
         analysisExecutor.shutdown()
+        classificationExecutor.shutdownNow()
         synchronized(frameLock) {
             latestFrameBitmap = null
             latestFrameDetections = emptyList()
@@ -212,6 +253,17 @@ class ScanActivity : AppCompatActivity() {
                 setScanButtonActive(false)
             }
         }, ContextCompat.getMainExecutor(this))
+    }
+
+    private fun initializeClassifier() {
+        if (classifier == null) {
+            classifier = CopraClassifier(applicationContext)
+        }
+
+        val initialized = classifier?.initialize() == true
+        if (!initialized) {
+            Log.w(TAG, "Classifier initialization failed. Capture classification will be unavailable.")
+        }
     }
 
     private fun stopLiveDetection(freeze: Boolean) {
@@ -524,18 +576,22 @@ class ScanActivity : AppCompatActivity() {
         )
     }
 
-    private fun captureCurrentDetections() {
+    private fun captureCurrentDetections(): Int {
+        val sessionId = nextCaptureSessionId()
         val frameBitmap = synchronized(frameLock) { latestFrameBitmap }
         val detections = synchronized(frameLock) { latestFrameDetections.toList() }
 
         if (frameBitmap == null || detections.isEmpty()) {
             capturedDetections.clear()
-            return
+            resultsCurrentPage = 1
+            renderResultsSheetIfVisible()
+            return sessionId
         }
 
         val crops = mutableListOf<CapturedDetection>()
         detections.forEach { detection ->
-            val cropRect = clampRectForBitmap(detection.rectInFrame, frameBitmap.width, frameBitmap.height)
+            val expandedRect = expandRectByPercent(detection.rectInFrame, 0.08f)
+            val cropRect = clampRectForBitmap(expandedRect, frameBitmap.width, frameBitmap.height)
                 ?: return@forEach
 
             try {
@@ -551,8 +607,19 @@ class ScanActivity : AppCompatActivity() {
                     CapturedDetection(
                         crop = crop,
                         sourceRect = RectF(cropRect),
+                        previewRect = RectF(detection.rectInPreview),
                         label = detection.label,
-                        score = detection.score
+                        score = detection.score,
+                        classificationStatus = if (cropRect.width() < 32 || cropRect.height() < 32) {
+                            ClassificationStatus.FAILED
+                        } else {
+                            ClassificationStatus.PENDING
+                        },
+                        classificationLabel = if (cropRect.width() < 32 || cropRect.height() < 32) {
+                            "Too small"
+                        } else {
+                            null
+                        }
                     )
                 )
             } catch (e: Exception) {
@@ -561,6 +628,21 @@ class ScanActivity : AppCompatActivity() {
         }
 
         capturedDetections = crops
+        refreshCapturedOverlay()
+        resultsCurrentPage = 1
+        renderResultsSheetIfVisible()
+        return sessionId
+    }
+
+    private fun expandRectByPercent(rect: RectF, expansionRatio: Float): RectF {
+        val dx = rect.width() * expansionRatio
+        val dy = rect.height() * expansionRatio
+        return RectF(
+            rect.left - dx,
+            rect.top - dy,
+            rect.right + dx,
+            rect.bottom + dy
+        )
     }
 
     private fun clampRectForBitmap(rect: RectF, bitmapWidth: Int, bitmapHeight: Int): Rect? {
@@ -575,8 +657,128 @@ class ScanActivity : AppCompatActivity() {
         return Rect(left, top, right, bottom)
     }
 
+    private fun enqueueClassificationJobs(sessionId: Int) {
+        val localClassifier = classifier
+        if (localClassifier == null || !localClassifier.initialize()) {
+            markPendingClassificationsAsFailed(sessionId, "Classifier unavailable")
+            return
+        }
+
+        val jobs = capturedDetections
+            .withIndex()
+            .filter { it.value.classificationStatus == ClassificationStatus.PENDING }
+            .sortedByDescending { it.value.score }
+
+        if (jobs.isEmpty()) {
+            renderResultsSheetIfVisible()
+            return
+        }
+
+        val batchStartMs = SystemClock.elapsedRealtime()
+        val completedCount = AtomicInteger(0)
+
+        jobs.forEach { indexedItem ->
+            classificationExecutor.execute {
+                val result = try {
+                    localClassifier.classify(indexedItem.value.crop)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Classification failed for index=${indexedItem.index}", e)
+                    null
+                }
+
+                val finished = completedCount.incrementAndGet()
+                runOnUiThread {
+                    if (isActivityDestroyed || sessionId != captureSessionId) {
+                        return@runOnUiThread
+                    }
+
+                    val itemIndex = indexedItem.index
+                    if (itemIndex !in capturedDetections.indices) return@runOnUiThread
+
+                    if (result == null) {
+                        applyClassificationFailure(itemIndex)
+                    } else {
+                        applyClassificationSuccess(itemIndex, result)
+                        Log.d(
+                            TAG,
+                            "Classification index=$itemIndex label=${result.gradeLabel} confidence=${"%.3f".format(result.confidence)} inferenceMs=${result.inferenceMs}"
+                        )
+                    }
+
+                    if (acceptClassificationCallbacks) {
+                        renderResultsSheetIfVisible()
+                    }
+
+                    if (finished == jobs.size) {
+                        val totalMs = SystemClock.elapsedRealtime() - batchStartMs
+                        Log.d(
+                            TAG,
+                            "Classification batch completed session=$sessionId jobs=${jobs.size} totalMs=$totalMs"
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun applyClassificationSuccess(index: Int, result: ClassificationResult) {
+        val current = capturedDetections[index]
+        capturedDetections[index] = current.copy(
+            classificationLabel = result.gradeLabel,
+            classificationConfidence = result.confidence,
+            classificationStatus = ClassificationStatus.READY,
+            classificationMs = result.inferenceMs
+        )
+        refreshCapturedOverlay()
+    }
+
+    private fun applyClassificationFailure(index: Int) {
+        val current = capturedDetections[index]
+        capturedDetections[index] = current.copy(
+            classificationLabel = null,
+            classificationConfidence = null,
+            classificationStatus = ClassificationStatus.FAILED,
+            classificationMs = null
+        )
+        refreshCapturedOverlay()
+    }
+
+    private fun markPendingClassificationsAsFailed(sessionId: Int, reason: String) {
+        runOnUiThread {
+            if (isActivityDestroyed || sessionId != captureSessionId) return@runOnUiThread
+
+            capturedDetections = capturedDetections.map { item ->
+                if (item.classificationStatus == ClassificationStatus.PENDING) {
+                    item.copy(
+                        classificationStatus = ClassificationStatus.FAILED,
+                        classificationLabel = null,
+                        classificationConfidence = null,
+                        classificationMs = null
+                    )
+                } else {
+                    item
+                }
+            }.toMutableList()
+            refreshCapturedOverlay()
+
+            if (acceptClassificationCallbacks) {
+                renderResultsSheetIfVisible()
+                Toast.makeText(this, reason, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun nextCaptureSessionId(): Int {
+        captureSessionId += 1
+        return captureSessionId
+    }
+
     private fun clearCapturedSession() {
+        captureSessionId += 1
         capturedDetections.clear()
+        resultsCurrentPage = 1
+        dismissResultsBottomSheet()
+
         overlay.detections = emptyList()
         overlay.invalidate()
         frozenFrameView.setImageDrawable(null)
@@ -586,78 +788,204 @@ class ScanActivity : AppCompatActivity() {
         }
     }
 
+    private fun refreshCapturedOverlay() {
+        if (state != ScanState.CAPTURED && state != ScanState.SCANNING) return
+        if (capturedDetections.isEmpty()) return
+
+        overlay.detections = capturedDetections.map { captured ->
+            val (label, score, color) = when (captured.classificationStatus) {
+                ClassificationStatus.PENDING -> Triple(
+                    "Classifying...",
+                    0f,
+                    Color.parseColor("#757575")
+                )
+
+                ClassificationStatus.FAILED -> Triple(
+                    "Unclassified",
+                    0f,
+                    Color.parseColor("#9E9E9E")
+                )
+
+                ClassificationStatus.READY -> {
+                    val grade = captured.classificationLabel ?: "Unknown"
+                    val confidence = captured.classificationConfidence ?: 0f
+                    Triple(grade, confidence, colorForGrade(grade))
+                }
+            }
+
+            OverlayView.Detection(
+                rectPreview = RectF(captured.previewRect),
+                label = label,
+                score = score,
+                color = color
+            )
+        }
+        overlay.invalidate()
+    }
+
+    private fun colorForGrade(gradeLabel: String): Int {
+        return when (gradeBucket(gradeLabel)) {
+            1 -> Color.parseColor("#2E7D32")
+            2 -> Color.parseColor("#F9A825")
+            3 -> Color.parseColor("#C62828")
+            else -> Color.parseColor("#455A64")
+        }
+    }
+
+    private fun dismissResultsBottomSheet() {
+        resultsDialog?.setOnDismissListener(null)
+        resultsDialog?.dismiss()
+        clearResultsBottomSheetRefs()
+    }
+
+    private fun clearResultsBottomSheetRefs() {
+        resultsDialog = null
+        resultsSummarySection = null
+        resultsRecycler = null
+        resultsEmptyState = null
+        resultsBtnPrev = null
+        resultsBtnNext = null
+        resultsPageInput = null
+        resultsTotalPagesText = null
+        resultsGrade1Count = null
+        resultsGrade2Count = null
+        resultsGrade3Count = null
+        resultsAdapter = null
+    }
+
     private fun showCapturedResultsBottomSheet() {
+        if (resultsDialog?.isShowing == true) {
+            renderResultsSheet()
+            return
+        }
+
         val dialog = BottomSheetDialog(this, R.style.BottomSheetStyle)
         val view = layoutInflater.inflate(R.layout.bottom_sheet_results, null)
         dialog.setContentView(view)
+        resultsDialog = dialog
 
-        val summarySection = view.findViewById<View>(R.id.layoutSummarySection)
-        val recycler = view.findViewById<RecyclerView>(R.id.recyclerImages)
-        val emptyState = view.findViewById<TextView>(R.id.tvEmptyState)
-        val btnPrev = view.findViewById<MaterialButton>(R.id.btnPrev)
-        val btnNext = view.findViewById<MaterialButton>(R.id.btnNext)
-        val pageInput = view.findViewById<TextInputEditText>(R.id.etPageNumber)
-        val totalPagesText = view.findViewById<TextView>(R.id.tvTotalPages)
+        resultsSummarySection = view.findViewById(R.id.layoutSummarySection)
+        resultsRecycler = view.findViewById<RecyclerView>(R.id.recyclerImages).apply {
+            layoutManager = GridLayoutManager(this@ScanActivity, 3)
+        }
+        resultsEmptyState = view.findViewById(R.id.tvEmptyState)
+        resultsBtnPrev = view.findViewById(R.id.btnPrev)
+        resultsBtnNext = view.findViewById(R.id.btnNext)
+        resultsPageInput = view.findViewById(R.id.etPageNumber)
+        resultsTotalPagesText = view.findViewById(R.id.tvTotalPages)
+        resultsGrade1Count = view.findViewById(R.id.tvGrade1Count)
+        resultsGrade2Count = view.findViewById(R.id.tvGrade2Count)
+        resultsGrade3Count = view.findViewById(R.id.tvGrade3Count)
+        resultsAdapter = CapturedImageAdapter(emptyList())
+        resultsRecycler?.adapter = resultsAdapter
 
-        summarySection.visibility = View.GONE
-        recycler.layoutManager = GridLayoutManager(this, 3)
-
-        val allItems = capturedDetections.toList()
-        val adapter = CapturedImageAdapter(emptyList())
-        recycler.adapter = adapter
-
-        if (allItems.isEmpty()) {
-            emptyState.visibility = View.VISIBLE
-            recycler.visibility = View.GONE
-            btnPrev.isEnabled = false
-            btnNext.isEnabled = false
-            pageInput.setText("1")
-            totalPagesText.text = "of 1"
-        } else {
-            emptyState.visibility = View.GONE
-            recycler.visibility = View.VISIBLE
-
-            var currentPage = 1
-            val totalPages = (allItems.size + PAGE_SIZE - 1) / PAGE_SIZE
-
-            fun loadPage(page: Int) {
-                val start = (page - 1) * PAGE_SIZE
-                val end = min(start + PAGE_SIZE, allItems.size)
-                val pageItems = allItems.subList(start, end)
-
-                adapter.updateData(pageItems)
-                pageInput.setText(page.toString())
-                totalPagesText.text = "of $totalPages"
-                btnPrev.isEnabled = page > 1
-                btnNext.isEnabled = page < totalPages
-            }
-
-            loadPage(currentPage)
-
-            btnPrev.setOnClickListener {
-                if (currentPage > 1) {
-                    currentPage -= 1
-                    loadPage(currentPage)
-                }
-            }
-
-            btnNext.setOnClickListener {
-                if (currentPage < totalPages) {
-                    currentPage += 1
-                    loadPage(currentPage)
-                }
+        resultsBtnPrev?.setOnClickListener {
+            if (resultsCurrentPage > 1) {
+                resultsCurrentPage -= 1
+                renderResultsSheet()
             }
         }
 
         view.findViewById<ImageView>(R.id.btnClose).setOnClickListener {
             dialog.dismiss()
         }
+        resultsBtnNext?.setOnClickListener {
+            val totalPages = max(1, (capturedDetections.size + PAGE_SIZE - 1) / PAGE_SIZE)
+            if (resultsCurrentPage < totalPages) {
+                resultsCurrentPage += 1
+                renderResultsSheet()
+            }
+        }
 
+        dialog.setOnDismissListener { clearResultsBottomSheetRefs() }
         dialog.show()
-
         val behavior = dialog.behavior
         behavior.peekHeight = (resources.displayMetrics.heightPixels * 0.5).toInt()
         behavior.state = BottomSheetBehavior.STATE_COLLAPSED
+
+        renderResultsSheet()
+    }
+
+    private fun renderResultsSheetIfVisible() {
+        if (resultsDialog?.isShowing == true) {
+            renderResultsSheet()
+        }
+    }
+
+    private fun renderResultsSheet() {
+        val summarySection = resultsSummarySection ?: return
+        val recycler = resultsRecycler ?: return
+        val emptyState = resultsEmptyState ?: return
+        val btnPrev = resultsBtnPrev ?: return
+        val btnNext = resultsBtnNext ?: return
+        val pageInput = resultsPageInput ?: return
+        val totalPagesText = resultsTotalPagesText ?: return
+        val adapter = resultsAdapter ?: return
+
+        val allItems = capturedDetections.toList()
+        if (allItems.isEmpty()) {
+            summarySection.visibility = View.GONE
+            emptyState.visibility = View.VISIBLE
+            recycler.visibility = View.GONE
+            btnPrev.isEnabled = false
+            btnNext.isEnabled = false
+            pageInput.setText("1")
+            totalPagesText.text = "of 1"
+            adapter.updateData(emptyList())
+            return
+        }
+
+        summarySection.visibility = View.VISIBLE
+        emptyState.visibility = View.GONE
+        recycler.visibility = View.VISIBLE
+        updateSummaryCounts(allItems)
+
+        val totalPages = max(1, (allItems.size + PAGE_SIZE - 1) / PAGE_SIZE)
+        if (resultsCurrentPage > totalPages) {
+            resultsCurrentPage = totalPages
+        }
+        if (resultsCurrentPage < 1) {
+            resultsCurrentPage = 1
+        }
+
+        val start = (resultsCurrentPage - 1) * PAGE_SIZE
+        val end = min(start + PAGE_SIZE, allItems.size)
+        val pageItems = allItems.subList(start, end)
+
+        adapter.updateData(pageItems)
+        pageInput.setText(resultsCurrentPage.toString())
+        totalPagesText.text = "of $totalPages"
+        btnPrev.isEnabled = resultsCurrentPage > 1
+        btnNext.isEnabled = resultsCurrentPage < totalPages
+    }
+
+    private fun updateSummaryCounts(items: List<CapturedDetection>) {
+        val readyItems = items.filter { it.classificationStatus == ClassificationStatus.READY }
+        val grade1 = readyItems.count { gradeBucket(it.classificationLabel) == 1 }
+        val grade2 = readyItems.count { gradeBucket(it.classificationLabel) == 2 }
+        val grade3 = readyItems.count { gradeBucket(it.classificationLabel) == 3 }
+
+        resultsGrade1Count?.text = grade1.toString()
+        resultsGrade2Count?.text = grade2.toString()
+        resultsGrade3Count?.text = grade3.toString()
+    }
+
+    private fun gradeBucket(label: String?): Int {
+        if (label.isNullOrBlank()) return 0
+        val normalized = label.trim().lowercase()
+        val compact = normalized.replace(Regex("[^a-z0-9]"), "")
+        return when {
+            normalized.contains("grade iii") || compact.contains("gradeiii") ||
+                compact.contains("gradec") || compact == "c" -> 3
+
+            normalized.contains("grade ii") || compact.contains("gradeii") ||
+                compact.contains("gradeb") || compact == "b" -> 2
+
+            normalized.contains("grade i") || compact.contains("gradei") ||
+                compact.contains("gradea") || compact == "a" -> 1
+
+            else -> 0
+        }
     }
 
     @OptIn(ExperimentalGetImage::class)

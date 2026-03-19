@@ -9,6 +9,12 @@ enum class ScanState {
     CAPTURED
 }
 
+enum class ClassificationStatus {
+    PENDING,
+    READY,
+    FAILED
+}
+
 data class FrameDetection(
     val rectInFrame: RectF,
     val rectInPreview: RectF,
@@ -19,6 +25,11 @@ data class FrameDetection(
 data class CapturedDetection(
     val crop: Bitmap,
     val sourceRect: RectF,
+    val previewRect: RectF,
     val label: String,
-    val score: Float
+    val score: Float,
+    val classificationLabel: String? = null,
+    val classificationConfidence: Float? = null,
+    val classificationStatus: ClassificationStatus = ClassificationStatus.PENDING,
+    val classificationMs: Long? = null
 )

@@ -51,6 +51,7 @@ dependencies {
     implementation(libs.androidx.camera.view)
     implementation(libs.tensorflow.lite.support)
     implementation(libs.tensorflow.lite.metadata)
+    implementation("org.tensorflow:tensorflow-lite:2.17.0")
     implementation(libs.tensorflow.lite.gpu)
 
     testImplementation(libs.junit)
