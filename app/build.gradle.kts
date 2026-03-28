@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
+    id("com.chaquo.python")
 }
 
 android {
@@ -16,6 +17,10 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+
+        ndk {
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -35,6 +40,18 @@ android {
     }
     buildFeatures {
         mlModelBinding = true
+    }
+}
+
+chaquopy {
+    defaultConfig {
+        version = "3.10"
+        buildPython("C:/Users/ADMIN/AppData/Local/Programs/Python/Python310/python.exe")
+        pip {
+            install("numpy")
+            install("opencv-python-headless")
+            install("scikit-image")
+        }
     }
 }
 

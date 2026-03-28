@@ -11,7 +11,6 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
-import kotlin.math.max
 
 data class ClassificationResult(
     val gradeLabel: String,
@@ -25,7 +24,7 @@ class CopraClassifier(
 ) {
     companion object {
         private const val TAG = "CopraClassifier"
-        private const val MODEL_FILE = "mobilenetv2_baseline_phase2_float32_metadata.tflite"
+        private const val MODEL_FILE = "squeezenet_glcm_phase2_float32_metadata.tflite"
         private const val INPUT_WIDTH = 224
         private const val INPUT_HEIGHT = 224
         private const val INPUT_CHANNELS = 3
@@ -38,6 +37,8 @@ class CopraClassifier(
     private var interpreter: Interpreter? = null
     private var labels: List<String> = DEFAULT_LABELS
     private var initialized = false
+    private var outputClassCount = DEFAULT_LABELS.size
+    private val glcmBridge = GlcmPythonBridge(context)
 
     @Synchronized
     fun initialize(): Boolean {
@@ -51,6 +52,7 @@ class CopraClassifier(
 
             interpreter = Interpreter(modelBuffer, options)
             labels = readLabelsFromMetadata(modelBuffer) ?: DEFAULT_LABELS
+            validateModel(ioInterpreter = interpreter!!)
             initialized = true
             Log.d(TAG, "Initialized classifier with labels=$labels")
             true
@@ -68,14 +70,20 @@ class CopraClassifier(
         val localInterpreter = interpreter
             ?: throw IllegalStateException("CopraClassifier is not initialized")
 
-        val inputBuffer = preprocess(cropBitmap)
-        val output = Array(1) { FloatArray(3) }
-
         val startNs = SystemClock.elapsedRealtimeNanos()
-        localInterpreter.run(inputBuffer, output)
+
+        val imageBuffer = preprocessImageInput(cropBitmap)
+        val glcmBuffer = preprocessGlcmInput(cropBitmap)
+        val output = Array(1) { FloatArray(outputClassCount) }
+
+        val outputs = mutableMapOf<Int, Any>(0 to output)
+        localInterpreter.runForMultipleInputsOutputs(
+            arrayOf(imageBuffer, glcmBuffer),
+            outputs
+        )
         val inferenceMs = (SystemClock.elapsedRealtimeNanos() - startNs) / 1_000_000L
 
-        val probabilities = normalizeProbabilities(output[0])
+        val probabilities = softmax(output[0])
         val maxIndex = probabilities.indices.maxByOrNull { probabilities[it] } ?: 0
         val rawLabel = labels.getOrNull(maxIndex) ?: "Unknown"
         val label = toDisplayGradeLabel(rawLabel)
@@ -96,7 +104,7 @@ class CopraClassifier(
         initialized = false
     }
 
-    private fun preprocess(bitmap: Bitmap): ByteBuffer {
+    private fun preprocessImageInput(bitmap: Bitmap): ByteBuffer {
         val resized = Bitmap.createScaledBitmap(bitmap, INPUT_WIDTH, INPUT_HEIGHT, true)
         val inputBuffer = ByteBuffer.allocateDirect(4 * INPUT_WIDTH * INPUT_HEIGHT * INPUT_CHANNELS)
             .order(ByteOrder.nativeOrder())
@@ -118,20 +126,75 @@ class CopraClassifier(
         return inputBuffer
     }
 
-    private fun normalizeProbabilities(raw: FloatArray): List<Float> {
-        val clipped = raw.map { value ->
-            when {
-                value.isNaN() || value.isInfinite() -> 0f
-                else -> max(0f, value)
+    private fun preprocessGlcmInput(bitmap: Bitmap): ByteBuffer {
+        val rgbBytes = extractRgbBytes(bitmap)
+        val glcmFeatures = glcmBridge.extractFeaturesFromRgb(rgbBytes, bitmap.width, bitmap.height)
+
+        val glcmBuffer = ByteBuffer.allocateDirect(4 * glcmFeatures.size)
+            .order(ByteOrder.nativeOrder())
+        for (feature in glcmFeatures) {
+            glcmBuffer.putFloat(feature)
+        }
+        glcmBuffer.rewind()
+        return glcmBuffer
+    }
+
+    private fun extractRgbBytes(bitmap: Bitmap): ByteArray {
+        val pixels = IntArray(bitmap.width * bitmap.height)
+        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+
+        val rgb = ByteArray(pixels.size * 3)
+        var offset = 0
+        for (pixel in pixels) {
+            rgb[offset++] = ((pixel shr 16) and 0xFF).toByte()
+            rgb[offset++] = ((pixel shr 8) and 0xFF).toByte()
+            rgb[offset++] = (pixel and 0xFF).toByte()
+        }
+        return rgb
+    }
+
+    private fun softmax(raw: FloatArray): List<Float> {
+        if (raw.isEmpty()) return emptyList()
+
+        val maxLogit = raw
+            .filter { it.isFinite() }
+            .maxOrNull()
+            ?: return List(raw.size) { 0f }
+
+        val exps = raw.map { value ->
+            if (value.isNaN() || value.isInfinite()) {
+                0f
+            } else {
+                kotlin.math.exp(value - maxLogit).toFloat()
             }
         }
+        val sum = exps.sum()
+        return if (sum <= 0f) List(exps.size) { 0f } else exps.map { it / sum }
+    }
 
-        val sum = clipped.sum()
-        return if (sum <= 0f) {
-            List(clipped.size) { 0f }
-        } else {
-            clipped.map { it / sum }
+    private fun validateModel(ioInterpreter: Interpreter) {
+        require(ioInterpreter.inputTensorCount == 2) {
+            "Expected 2 model inputs, found ${ioInterpreter.inputTensorCount}"
         }
+        require(ioInterpreter.outputTensorCount >= 1) {
+            "Expected at least 1 model output, found ${ioInterpreter.outputTensorCount}"
+        }
+
+        val imageShape = ioInterpreter.getInputTensor(0).shape()
+        val glcmShape = ioInterpreter.getInputTensor(1).shape()
+        val outputShape = ioInterpreter.getOutputTensor(0).shape()
+
+        require(imageShape.contentEquals(intArrayOf(1, INPUT_HEIGHT, INPUT_WIDTH, INPUT_CHANNELS))) {
+            "Unexpected image input shape: ${imageShape.joinToString(prefix = "[", postfix = "]")}"
+        }
+        require(glcmShape.size >= 2 && glcmShape.last() == 5) {
+            "Unexpected GLCM input shape: ${glcmShape.joinToString(prefix = "[", postfix = "]")}"
+        }
+        require(outputShape.size >= 2 && outputShape.last() > 0) {
+            "Unexpected output shape: ${outputShape.joinToString(prefix = "[", postfix = "]")}"
+        }
+
+        outputClassCount = outputShape.last()
     }
 
     private fun toDisplayGradeLabel(rawLabel: String): String {
