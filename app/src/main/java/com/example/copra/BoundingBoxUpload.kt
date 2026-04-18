@@ -1,10 +1,14 @@
 package com.example.copra
 
 import android.content.Context
-import android.graphics.*
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Typeface
 import android.util.AttributeSet
 import android.view.View
-import kotlin.random.Random
+import kotlin.math.max
 
 class BoundingBoxView @JvmOverloads constructor(
     context: Context,
@@ -24,41 +28,18 @@ class BoundingBoxView @JvmOverloads constructor(
     data class Box(
         val rect: RectF,
         val label: String,
-        val color: Int
+        val color: Int,
+        val score: Float = 0f
     )
 
-    fun generateFakeResults(viewWidth: Int, viewHeight: Int) {
-
-        if (viewWidth <= 250 || viewHeight <= 250) return
-
+    fun setBoxes(newBoxes: List<Box>) {
         boxes.clear()
+        boxes.addAll(newBoxes)
+        invalidate()
+    }
 
-        val grades = listOf("Grade A", "Grade B", "Grade C")
-        val boxSize = 200f
-
-        repeat(5) {
-
-            val maxWidth = (viewWidth - boxSize).toInt()
-            val maxHeight = (viewHeight - boxSize).toInt()
-
-            if (maxWidth <= 50 || maxHeight <= 50) return
-
-            val left = Random.nextInt(50, maxWidth).toFloat()
-            val top = Random.nextInt(50, maxHeight).toFloat()
-
-            val rect = RectF(left, top, left + boxSize, top + boxSize)
-
-            val grade = grades.random()
-
-            val color = when (grade) {
-                "Grade A" -> Color.GREEN
-                "Grade B" -> Color.YELLOW
-                else -> Color.RED
-            }
-
-            boxes.add(Box(rect, grade, color))
-        }
-
+    fun clearBoxes() {
+        boxes.clear()
         invalidate()
     }
 
@@ -72,12 +53,30 @@ class BoundingBoxView @JvmOverloads constructor(
             paint.color = box.color
             canvas.drawRect(box.rect, paint)
 
-            // Draw label
+            val scorePercent = (box.score * 100).toInt().coerceIn(0, 100)
+            val labelText = if (box.score > 0f) {
+                "${box.label} $scorePercent%"
+            } else {
+                box.label
+            }
+            val labelWidth = max(180f, paint.measureText(labelText) + 32f)
+            val labelTop = max(0f, box.rect.top - 52f)
+
+            paint.style = Paint.Style.FILL
+            canvas.drawRect(
+                box.rect.left,
+                labelTop,
+                box.rect.left + labelWidth,
+                labelTop + 44f,
+                paint
+            )
+
+            paint.color = Color.WHITE
             paint.style = Paint.Style.FILL
             canvas.drawText(
-                box.label,
-                box.rect.left,
-                box.rect.top - 10,
+                labelText,
+                box.rect.left + 12f,
+                labelTop + 32f,
                 paint
             )
         }

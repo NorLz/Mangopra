@@ -1,22 +1,31 @@
 package com.example.copra
 
-import android.os.Bundle
-import android.widget.ImageButton
 import android.app.DatePickerDialog
-import android.widget.Toast
-import java.util.Calendar
-import androidx.appcompat.app.AppCompatActivity
-import android.view.View
-import androidx.recyclerview.widget.RecyclerView
-import androidx.recyclerview.widget.GridLayoutManager
-import com.example.copra.ResultAdapter.ItemViewHolder
-import com.example.copra.ResultAdapter.FooterViewHolder
 import android.content.Intent
+import android.os.Bundle
+import android.util.Log
+import android.view.View
+import android.widget.ImageButton
+import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AlertDialog
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.button.MaterialButton
+import java.util.Calendar
 
 class HomePage : AppCompatActivity() {
 
+    companion object {
+        private const val TAG = "HomePage"
+    }
+
     private lateinit var recyclerView: RecyclerView
+    private lateinit var emptyStateText: TextView
+    private lateinit var clearAllButton: MaterialButton
     private lateinit var adapter: ResultAdapter
+    private lateinit var historyRepository: AnalysisHistoryRepository
 
     private val fullList = mutableListOf<ResultModel>()
     private var currentPage = 0
@@ -27,27 +36,18 @@ class HomePage : AppCompatActivity() {
         setContentView(R.layout.activity_home_page)
 
         recyclerView = findViewById(R.id.recyclerViewCards)
-        val gridLayoutManager = GridLayoutManager(this, 2)
+        emptyStateText = findViewById(R.id.tvHistoryEmptyState)
+        clearAllButton = findViewById(R.id.btnClearAllHistory)
+        historyRepository = AnalysisHistoryRepository.getInstance(applicationContext)
 
+        val gridLayoutManager = GridLayoutManager(this, 1)
         gridLayoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
             override fun getSpanSize(position: Int): Int {
-                return if (position == adapter.itemCount - 1) {
-                    2 // Footer takes full width (both columns)
-                } else {
-                    1 // Normal items take 1 column
-                }
+                return 1
             }
         }
-
         recyclerView.layoutManager = gridLayoutManager
 
-        // ✅ Generate dummy data for testing pagination
-        generateFullData()
-
-        // Show the first page
-        showPage(0)
-
-        // Bottom Navigation Buttons
         val homeBtn = findViewById<ImageButton>(R.id.imageButton15)
         val scanBtn = findViewById<ImageButton>(R.id.imageButton13)
         val uploadBtn = findViewById<ImageButton>(R.id.imageButton16)
@@ -63,10 +63,12 @@ class HomePage : AppCompatActivity() {
                     homeBtn.setImageResource(R.drawable.iconly_icon_export_1773064234)
                     moveIndicator(homeBtn, indicator)
                 }
+
                 R.id.imageButton13 -> {
                     scanBtn.setImageResource(R.drawable.scan__1_)
                     moveIndicator(scanBtn, indicator)
                 }
+
                 R.id.imageButton16 -> {
                     uploadBtn.setImageResource(R.drawable.upload)
                     moveIndicator(uploadBtn, indicator)
@@ -75,27 +77,23 @@ class HomePage : AppCompatActivity() {
         }
 
         homeBtn.setOnClickListener { setActive(homeBtn) }
-        scanBtn.setOnClickListener { setActive(scanBtn) }
-        uploadBtn.setOnClickListener { setActive(uploadBtn) }
-
-        homeBtn.post {
-            setActive(homeBtn)
-        }
-
-
         scanBtn.setOnClickListener {
             setActive(scanBtn)
             startActivity(Intent(this, ScanActivity::class.java))
-            finish() // closes HomePage so it doesn't stack
+            finish()
         }
-
         uploadBtn.setOnClickListener {
             setActive(uploadBtn)
             startActivity(Intent(this, UploadActivity::class.java))
-            finish() // closes HomePage
+            finish()
         }
 
-        // Calendar Button
+        homeBtn.post { setActive(homeBtn) }
+
+        clearAllButton.setOnClickListener {
+            confirmClearAllHistory()
+        }
+
         val calendarButton: ImageButton = findViewById(R.id.imageButton)
         calendarButton.setOnClickListener {
             val calendar = Calendar.getInstance()
@@ -115,45 +113,76 @@ class HomePage : AppCompatActivity() {
         }
     }
 
-    // Generate sample data
-    private fun generateFullData() {
-        fullList.clear()
-        for (i in 1..30) { // 30 items → multiple pages
-            val grade = when ((1..3).random()) {
-                1 -> "I"
-                2 -> "II"
-                else -> "III"
-            }
-            val confidence = "${(70..99).random()}%"
-            val day = (1..28).random()
-            val date = "01/$day/25"
-
-            fullList.add(
-                ResultModel(
-                    imageRes = R.drawable.sample_image_23,
-                    grade = grade,
-                    confidence = confidence,
-                    date = date
-                )
-            )
-        }
+    override fun onResume() {
+        super.onResume()
+        loadHistorySessions()
     }
 
-    // Show selected page
+    private fun loadHistorySessions() {
+        historyRepository.loadRecentSessions(
+            onComplete = { sessions ->
+                fullList.clear()
+                fullList.addAll(
+                    sessions.map { session ->
+                        ResultModel(
+                            sessionId = session.id,
+                            imagePath = session.fullImagePath,
+                            sourceLabel = if (session.sourceType == AnalysisSourceType.SCAN) "Scan" else "Upload",
+                            status = "${session.detectionCount} copra analyzed",
+                            gradeSummary = "Grades  I:${session.grade1Count}  II:${session.grade2Count}  III:${session.grade3Count}",
+                            date = historyRepository.formatDate(session.createdAt),
+                            grade1Count = session.grade1Count,
+                            grade2Count = session.grade2Count,
+                            grade3Count = session.grade3Count
+                        )
+                    }
+                )
+
+                if (fullList.isEmpty()) {
+                    recyclerView.visibility = View.GONE
+                    emptyStateText.visibility = View.VISIBLE
+                    clearAllButton.visibility = View.GONE
+                } else {
+                    recyclerView.visibility = View.VISIBLE
+                    emptyStateText.visibility = View.GONE
+                    clearAllButton.visibility = View.VISIBLE
+                    showPage(0)
+                }
+            },
+            onError = { throwable ->
+                Log.e(TAG, "Failed to load history sessions", throwable)
+                recyclerView.visibility = View.GONE
+                emptyStateText.visibility = View.VISIBLE
+                clearAllButton.visibility = View.GONE
+                Toast.makeText(this, "Unable to load history yet.", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
     private fun showPage(page: Int) {
+        if (fullList.isEmpty()) {
+            recyclerView.visibility = View.GONE
+            emptyStateText.visibility = View.VISIBLE
+            return
+        }
 
-        currentPage = page  // 0-based
-
+        currentPage = page
         val fromIndex = page * pageSize
         val toIndex = minOf(fromIndex + pageSize, fullList.size)
         val pageList = fullList.subList(fromIndex, toIndex)
-
         val totalPages = (fullList.size + pageSize - 1) / pageSize
 
         adapter = ResultAdapter(
             list = pageList.toMutableList(),
-            currentPage = currentPage,  // 0-based
+            currentPage = currentPage,
             totalPages = totalPages,
+            onItemClick = { item ->
+                startActivity(
+                    Intent(this, HistoryDetailActivity::class.java).apply {
+                        putExtra(HistoryDetailActivity.EXTRA_SESSION_ID, item.sessionId)
+                    }
+                )
+            },
             onPageClick = { showPage(it) },
             onPrevClick = { if (currentPage > 0) showPage(currentPage - 1) },
             onNextClick = { if (currentPage < totalPages - 1) showPage(currentPage + 1) }
@@ -161,10 +190,10 @@ class HomePage : AppCompatActivity() {
 
         recyclerView.adapter = adapter
 
-        val gridLayoutManager = recyclerView.layoutManager as GridLayoutManager
-        gridLayoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+        val layoutManager = recyclerView.layoutManager as GridLayoutManager
+        layoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
             override fun getSpanSize(position: Int): Int {
-                return if (position == adapter.itemCount - 1) 2 else 1
+                return 1
             }
         }
     }
@@ -174,5 +203,30 @@ class HomePage : AppCompatActivity() {
             .x(button.x + button.width / 2 - indicator.width / 2)
             .setDuration(200)
             .start()
+    }
+
+    private fun confirmClearAllHistory() {
+        if (fullList.isEmpty()) return
+
+        AlertDialog.Builder(this)
+            .setTitle("Delete all history?")
+            .setMessage("This will permanently remove all saved scan and upload history from this device.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Delete All") { _, _ ->
+                clearAllButton.isEnabled = false
+                historyRepository.deleteAllSessions(
+                    onComplete = {
+                        clearAllButton.isEnabled = true
+                        Toast.makeText(this, "All history deleted.", Toast.LENGTH_SHORT).show()
+                        loadHistorySessions()
+                    },
+                    onError = { throwable ->
+                        clearAllButton.isEnabled = true
+                        Log.e(TAG, "Failed to delete all history", throwable)
+                        Toast.makeText(this, "Unable to delete all history.", Toast.LENGTH_SHORT).show()
+                    }
+                )
+            }
+            .show()
     }
 }

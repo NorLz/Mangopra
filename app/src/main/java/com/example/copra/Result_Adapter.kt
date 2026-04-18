@@ -1,22 +1,20 @@
 package com.example.copra
 
-import android.graphics.Color
+import android.graphics.BitmapFactory
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
+import android.widget.EditText
 import android.widget.ImageView
-import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.button.MaterialButton
-import android.widget.Button
-import androidx.core.graphics.toColorInt
-import android.widget.EditText
 
 class ResultAdapter(
     private val list: MutableList<ResultModel>,
     private val currentPage: Int,
     private val totalPages: Int,
+    private val onItemClick: (ResultModel) -> Unit,
     private val onPageClick: (Int) -> Unit,
     private val onPrevClick: () -> Unit,
     private val onNextClick: () -> Unit
@@ -64,39 +62,37 @@ class ResultAdapter(
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         if (holder is ItemViewHolder) {
             val item = list[position]
-            holder.image.setImageResource(item.imageRes)
-            holder.confidence.text = item.confidence
-            holder.date.text = item.date
-            holder.gradeLabel.text = "Grade ${item.grade}"
+            val bitmap = decodeThumbnail(item.imagePath)
+            if (bitmap != null) {
+                holder.image.setImageBitmap(bitmap)
+            } else {
+                holder.image.setImageResource(R.drawable.sample_image_20)
+            }
 
-            when (item.grade) {
-                "I" -> {
-                    holder.status.text = "Good Quality"
-                    holder.gradeIcon.setImageResource(R.drawable.check_circle)
-                }
-                "II" -> {
-                    holder.status.text = "Fair Quality"
-                    holder.gradeIcon.setImageResource(R.drawable.warning__1_)
-                }
-                "III" -> {
-                    holder.status.text = "Poor Quality"
-                    holder.gradeIcon.setImageResource(R.drawable.block__1_)
-                }
+            holder.status.text = item.status
+            holder.confidence.text = item.gradeSummary
+            holder.date.text = item.date
+            holder.gradeLabel.text = item.sourceLabel
+
+            when (dominantGrade(item)) {
+                1 -> holder.gradeIcon.setImageResource(R.drawable.check_circle)
+                2 -> holder.gradeIcon.setImageResource(R.drawable.warning__1_)
+                3 -> holder.gradeIcon.setImageResource(R.drawable.block__1_)
+                else -> holder.gradeIcon.setImageResource(R.drawable.manage_search)
+            }
+
+            holder.itemView.setOnClickListener {
+                onItemClick(item)
             }
         }
 
         if (holder is FooterViewHolder) {
-
-            // Set current page
             holder.etPageNumber.setText((currentPage + 1).toString())
             holder.tvTotalPages.text = "of $totalPages"
 
-            // Enable/disable buttons
             holder.btnPrev.isEnabled = currentPage > 0
             holder.btnNext.isEnabled = currentPage < totalPages - 1
 
-
-            // Prev / Next logic
             holder.btnPrev.setOnClickListener {
                 if (currentPage > 0) onPrevClick()
             }
@@ -105,8 +101,7 @@ class ResultAdapter(
                 if (currentPage < totalPages - 1) onNextClick()
             }
 
-            // EditText page input
-            holder.etPageNumber.setOnEditorActionListener { v, actionId, event ->
+            holder.etPageNumber.setOnEditorActionListener { _, _, _ ->
                 val input = holder.etPageNumber.text.toString().toIntOrNull()
                 if (input != null && input in 1..totalPages) {
                     onPageClick(input - 1)
@@ -118,4 +113,28 @@ class ResultAdapter(
         }
     }
 
+    private fun dominantGrade(item: ResultModel): Int {
+        return when {
+            item.grade1Count >= item.grade2Count &&
+                item.grade1Count >= item.grade3Count &&
+                item.grade1Count > 0 -> 1
+
+            item.grade2Count >= item.grade1Count &&
+                item.grade2Count >= item.grade3Count &&
+                item.grade2Count > 0 -> 2
+
+            item.grade3Count > 0 -> 3
+            else -> 0
+        }
+    }
+
+    private fun decodeThumbnail(path: String) = runCatching {
+        val options = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        BitmapFactory.decodeFile(path, options)
+        options.inSampleSize = 4
+        options.inJustDecodeBounds = false
+        BitmapFactory.decodeFile(path, options)
+    }.getOrNull()
 }

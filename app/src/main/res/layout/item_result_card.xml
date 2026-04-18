@@ -1,156 +1,106 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="8dp"
-    app:cardCornerRadius="16dp"
+    android:layout_marginHorizontal="8dp"
+    android:layout_marginVertical="10dp"
+    app:cardCornerRadius="18dp"
     app:cardElevation="4dp"
-    app:strokeWidth="1dp"
-    app:strokeColor="#DDDDDD">
+    app:strokeColor="#DDD5D9"
+    app:strokeWidth="1dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- Image Container with Overlay Icons -->
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="100dp">
+            android:layout_height="156dp">
 
-            <!-- Main Image -->
             <ImageView
                 android:id="@+id/cardImage"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
+                android:adjustViewBounds="true"
                 android:scaleType="centerCrop"
-                android:src="@drawable/sample_image_20"
-                />
+                android:src="@drawable/sample_image_20" />
 
-            <!-- Top Start Icon -->
             <TextView
                 android:id="@+id/iconTopStart"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="top|start"
-                android:layout_margin="8dp"
-                android:text="Grade I"
-                android:padding="2dp"
-                android:paddingStart="12dp"
-                android:paddingEnd="12dp"
-                android:textSize="8sp"
-                android:fontFamily="@font/inter_black"
+                android:layout_margin="10dp"
                 android:background="@drawable/round_bg_2"
-                 />
+                android:fontFamily="@font/inter_black"
+                android:paddingStart="12dp"
+                android:paddingTop="4dp"
+                android:paddingEnd="12dp"
+                android:paddingBottom="4dp"
+                android:text="Scan"
+                android:textColor="#1C1B1F"
+                android:textSize="10sp" />
 
-            <!-- Top End Icon -->
             <FrameLayout
-                android:layout_width="16dp"
-                android:layout_height="16dp"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
                 android:layout_gravity="top|end"
-                android:layout_margin="8dp"
+                android:layout_margin="10dp"
                 android:background="@drawable/round_bg">
 
                 <ImageView
                     android:id="@+id/iconTopEnd"
-                    android:layout_width="12dp"
-                    android:layout_height="12dp"
-                    android:paddingStart="1dp"
-                    android:paddingTop="1dp"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
                     android:layout_gravity="center"
-                    android:src="@drawable/check_circle"/>
-
-
+                    android:src="@drawable/check_circle" />
             </FrameLayout>
         </FrameLayout>
-        <!-- Content -->
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="8dp">
+            android:paddingStart="14dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="14dp">
 
-            <!-- Status -->
-            <LinearLayout
+            <TextView
+                android:id="@+id/cardStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:ellipsize="end"
+                android:fontFamily="@font/inter_bold"
+                android:maxLines="2"
+                android:text="6 copra analyzed"
+                android:textColor="#1C1B1F"
+                android:textSize="18sp" />
 
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Status: "
-                    android:textSize="12sp"
-                    android:fontFamily="@font/inter_regular" />
-
-                <TextView
-                    android:id="@+id/cardStatus"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Good Quality"
-                    android:textSize="14sp"
-                    android:textColor="#1C1B1F"
-                    android:textAlignment="textEnd"
-                    android:fontFamily="@font/inter_bold" />
-            </LinearLayout>
-
-            <!-- Confidence -->
-            <LinearLayout
+            <TextView
+                android:id="@+id/cardConfidence"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:layout_marginTop="8dp"
+                android:ellipsize="end"
+                android:fontFamily="@font/inter_medium"
+                android:maxLines="2"
+                android:text="Grades  I:3  II:0  III:3"
+                android:textColor="#3F3A3C"
+                android:textSize="13sp" />
 
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Confidence: "
-                    android:textSize="12sp"
-                    android:fontFamily="@font/inter_regular" />
-
-                <TextView
-                    android:id="@+id/cardConfidence"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="89%"
-                    android:textSize="14sp"
-                    android:textColor="#1C1B1F"
-                    android:textAlignment="textEnd"
-                    android:fontFamily="@font/inter_bold"
-                    />
-            </LinearLayout>
-
-            <!-- Date -->
-            <LinearLayout
+            <TextView
+                android:id="@+id/cardDate"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Date: "
-                    android:textSize="12sp"
-                    android:fontFamily="@font/inter_regular" />
-
-                <TextView
-                    android:id="@+id/cardDate"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="01/20/25"
-                    android:textSize="14sp"
-                    android:textColor="#1C1B1F"
-                    android:fontFamily="@font/inter_bold" />
-            </LinearLayout>
-
+                android:layout_marginTop="6dp"
+                android:fontFamily="@font/inter_regular"
+                android:text="04/18/26 11:41 PM"
+                android:textColor="#6A6266"
+                android:textSize="12sp" />
         </LinearLayout>
     </LinearLayout>
-
-
-
 
 </com.google.android.material.card.MaterialCardView>

@@ -1,7 +1,13 @@
 package com.example.copra
-    data class ResultModel(
-        val imageRes: Int,
-        val grade: String,
-        val confidence: String,
-        val date: String
-    )
+
+data class ResultModel(
+    val sessionId: Long,
+    val imagePath: String,
+    val sourceLabel: String,
+    val status: String,
+    val gradeSummary: String,
+    val date: String,
+    val grade1Count: Int,
+    val grade2Count: Int,
+    val grade3Count: Int
+)

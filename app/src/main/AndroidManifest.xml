@@ -18,6 +18,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Copra">
 
+        <activity android:name=".HistoryDetailActivity"/>
         <activity android:name=".ScanActivity"/>
         <activity android:name=".UploadActivity"/>
         <activity

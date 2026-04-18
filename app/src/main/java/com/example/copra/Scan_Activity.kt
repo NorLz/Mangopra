@@ -66,14 +66,17 @@ class ScanActivity : AppCompatActivity() {
     private var imageAnalysis: ImageAnalysis? = null
     private lateinit var analysisExecutor: ExecutorService
     private lateinit var classificationExecutor: ExecutorService
+    private lateinit var historyRepository: AnalysisHistoryRepository
     private var detectorModel: BestFloat32Metadata? = null
     private var classifier: CopraClassifier? = null
     private var loggedOutputShape = false
 
     private val frameLock = Any()
     private var latestFrameBitmap: Bitmap? = null
+    private var capturedFrameBitmap: Bitmap? = null
     private var latestFrameDetections: List<FrameDetection> = emptyList()
     private var capturedDetections: MutableList<CapturedDetection> = mutableListOf()
+    private var lastPersistedCaptureSessionId: Int = -1
     @Volatile
     private var captureSessionId: Int = 0
     @Volatile
@@ -105,6 +108,7 @@ class ScanActivity : AppCompatActivity() {
         btnScan = findViewById(R.id.btnScan)
         analysisExecutor = Executors.newSingleThreadExecutor()
         classificationExecutor = Executors.newSingleThreadExecutor()
+        historyRepository = AnalysisHistoryRepository.getInstance(applicationContext)
 
         try {
             detectorModel = BestFloat32Metadata.newInstance(this)
@@ -194,6 +198,7 @@ class ScanActivity : AppCompatActivity() {
             latestFrameDetections = emptyList()
             capturedDetections.clear()
         }
+        capturedFrameBitmap = null
     }
 
     private fun startLiveDetection() {
@@ -580,13 +585,17 @@ class ScanActivity : AppCompatActivity() {
         val sessionId = nextCaptureSessionId()
         val frameBitmap = synchronized(frameLock) { latestFrameBitmap }
         val detections = synchronized(frameLock) { latestFrameDetections.toList() }
+        lastPersistedCaptureSessionId = -1
 
         if (frameBitmap == null || detections.isEmpty()) {
             capturedDetections.clear()
+            capturedFrameBitmap = null
             resultsCurrentPage = 1
             renderResultsSheetIfVisible()
             return sessionId
         }
+
+        capturedFrameBitmap = frameBitmap.copy(frameBitmap.config ?: Bitmap.Config.ARGB_8888, false)
 
         val crops = mutableListOf<CapturedDetection>()
         detections.forEach { detection ->
@@ -670,6 +679,7 @@ class ScanActivity : AppCompatActivity() {
             .sortedByDescending { it.value.score }
 
         if (jobs.isEmpty()) {
+            maybePersistCapturedSession(sessionId)
             renderResultsSheetIfVisible()
             return
         }
@@ -715,6 +725,7 @@ class ScanActivity : AppCompatActivity() {
                             TAG,
                             "Classification batch completed session=$sessionId jobs=${jobs.size} totalMs=$totalMs"
                         )
+                        maybePersistCapturedSession(sessionId)
                     }
                 }
             }
@@ -765,6 +776,8 @@ class ScanActivity : AppCompatActivity() {
                 renderResultsSheetIfVisible()
                 Toast.makeText(this, reason, Toast.LENGTH_SHORT).show()
             }
+
+            maybePersistCapturedSession(sessionId)
         }
     }
 
@@ -776,6 +789,7 @@ class ScanActivity : AppCompatActivity() {
     private fun clearCapturedSession() {
         captureSessionId += 1
         capturedDetections.clear()
+        capturedFrameBitmap = null
         resultsCurrentPage = 1
         dismissResultsBottomSheet()
 
@@ -786,6 +800,32 @@ class ScanActivity : AppCompatActivity() {
         synchronized(frameLock) {
             latestFrameDetections = emptyList()
         }
+    }
+
+    private fun maybePersistCapturedSession(sessionId: Int) {
+        if (sessionId != captureSessionId) return
+        if (lastPersistedCaptureSessionId == sessionId) return
+        if (capturedDetections.isEmpty()) return
+        if (capturedDetections.any { it.classificationStatus == ClassificationStatus.PENDING }) return
+
+        val frameBitmap = capturedFrameBitmap ?: return
+        val snapshot = capturedDetections.toList()
+        lastPersistedCaptureSessionId = sessionId
+
+        historyRepository.saveSession(
+            sourceType = AnalysisSourceType.SCAN,
+            fullImage = frameBitmap,
+            items = snapshot,
+            onComplete = { savedSessionId ->
+                Log.d(TAG, "Saved scan history sessionId=$savedSessionId captureSession=$sessionId")
+            },
+            onError = { throwable ->
+                if (captureSessionId == sessionId) {
+                    lastPersistedCaptureSessionId = -1
+                }
+                Log.e(TAG, "Failed to save scan history for captureSession=$sessionId", throwable)
+            }
+        )
     }
 
     private fun refreshCapturedOverlay() {

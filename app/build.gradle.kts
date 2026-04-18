@@ -70,6 +70,8 @@ dependencies {
     implementation(libs.tensorflow.lite.metadata)
     implementation("org.tensorflow:tensorflow-lite:2.17.0")
     implementation(libs.tensorflow.lite.gpu)
+    implementation("androidx.room:room-runtime:2.7.2")
+    annotationProcessor("androidx.room:room-compiler:2.7.2")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
