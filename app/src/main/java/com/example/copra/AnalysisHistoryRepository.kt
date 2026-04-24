@@ -45,6 +45,7 @@ class AnalysisHistoryRepository private constructor(context: Context) {
 
     fun saveSession(
         sourceType: String,
+        modelOption: ClassificationModelOption,
         fullImage: Bitmap,
         items: List<CapturedDetection>,
         onComplete: ((Long) -> Unit)? = null,
@@ -53,7 +54,7 @@ class AnalysisHistoryRepository private constructor(context: Context) {
         val immutableItems = items.toList()
         executor.execute {
             try {
-                val sessionId = saveSessionInternal(sourceType, fullImage, immutableItems)
+                val sessionId = saveSessionInternal(sourceType, modelOption, fullImage, immutableItems)
                 mainHandler.post { onComplete?.invoke(sessionId) }
             } catch (throwable: Throwable) {
                 Log.e(TAG, "Failed to save session", throwable)
@@ -74,6 +75,8 @@ class AnalysisHistoryRepository private constructor(context: Context) {
                         createdAt = entity.createdAt,
                         sourceType = entity.sourceType,
                         fullImagePath = entity.fullImagePath,
+                        classificationModelKey = entity.classificationModelKey,
+                        classificationModelName = entity.classificationModelName,
                         grade1Count = entity.grade1Count,
                         grade2Count = entity.grade2Count,
                         grade3Count = entity.grade3Count,
@@ -163,6 +166,7 @@ class AnalysisHistoryRepository private constructor(context: Context) {
 
     private fun saveSessionInternal(
         sourceType: String,
+        modelOption: ClassificationModelOption,
         fullImage: Bitmap,
         items: List<CapturedDetection>
     ): Long {
@@ -185,6 +189,8 @@ class AnalysisHistoryRepository private constructor(context: Context) {
             createdAt = timestamp
             this.sourceType = sourceType
             fullImagePath = fullImageFile.absolutePath
+            classificationModelKey = modelOption.key
+            classificationModelName = modelOption.displayName
             this.grade1Count = grade1Count
             this.grade2Count = grade2Count
             this.grade3Count = grade3Count
@@ -207,6 +213,8 @@ class AnalysisHistoryRepository private constructor(context: Context) {
                 classificationConfidence = item.classificationConfidence
                 classificationStatus = item.classificationStatus.name
                 classificationMs = item.classificationMs
+                classificationModelKey = item.classificationModelKey ?: modelOption.key
+                classificationModelName = item.classificationModelName ?: modelOption.displayName
                 displayOrder = index
             }
         }
@@ -220,6 +228,8 @@ class AnalysisHistoryRepository private constructor(context: Context) {
             createdAt = session.createdAt,
             sourceType = session.sourceType,
             fullImagePath = session.fullImagePath,
+            classificationModelKey = session.classificationModelKey,
+            classificationModelName = session.classificationModelName,
             grade1Count = session.grade1Count,
             grade2Count = session.grade2Count,
             grade3Count = session.grade3Count,
@@ -241,6 +251,8 @@ class AnalysisHistoryRepository private constructor(context: Context) {
                         ?.let { status -> ClassificationStatus.valueOf(status) }
                         ?: ClassificationStatus.FAILED,
                     classificationMs = item.classificationMs,
+                    classificationModelKey = item.classificationModelKey,
+                    classificationModelName = item.classificationModelName,
                     displayOrder = item.displayOrder
                 )
             }

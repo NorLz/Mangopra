@@ -11,6 +11,8 @@ public class AnalysisSessionEntity {
     public long createdAt;
     public String sourceType;
     public String fullImagePath;
+    public String classificationModelKey;
+    public String classificationModelName;
     public int grade1Count;
     public int grade2Count;
     public int grade3Count;

@@ -15,6 +15,7 @@ class CapturedImageAdapter(
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val image: ImageView = view.findViewById(R.id.imgDetected)
         val label: TextView = view.findViewById(R.id.tvDetectedGrade)
+        val model: TextView = view.findViewById(R.id.tvDetectedModel)
         val icon: ImageView = view.findViewById(R.id.imgGradeIcon)
     }
 
@@ -70,6 +71,8 @@ class CapturedImageAdapter(
                 }
             }
         }
+
+        holder.model.text = item.classificationModelName ?: "Model not recorded"
     }
 
     override fun getItemCount(): Int = items.size

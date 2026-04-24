@@ -67,8 +67,10 @@ class ScanActivity : AppCompatActivity() {
     private lateinit var analysisExecutor: ExecutorService
     private lateinit var classificationExecutor: ExecutorService
     private lateinit var historyRepository: AnalysisHistoryRepository
+    private lateinit var classificationModelStore: ClassificationModelStore
     private var detectorModel: BestFloat32Metadata? = null
     private var classifier: CopraClassifier? = null
+    private var selectedClassificationModel: ClassificationModelOption = ClassificationModels.default
     private var loggedOutputShape = false
 
     private val frameLock = Any()
@@ -109,6 +111,8 @@ class ScanActivity : AppCompatActivity() {
         analysisExecutor = Executors.newSingleThreadExecutor()
         classificationExecutor = Executors.newSingleThreadExecutor()
         historyRepository = AnalysisHistoryRepository.getInstance(applicationContext)
+        classificationModelStore = ClassificationModelStore(applicationContext)
+        selectedClassificationModel = classificationModelStore.getSelectedModel()
 
         try {
             detectorModel = BestFloat32Metadata.newInstance(this)
@@ -166,6 +170,7 @@ class ScanActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        refreshSelectedClassificationModel()
         acceptClassificationCallbacks = true
     }
 
@@ -261,13 +266,20 @@ class ScanActivity : AppCompatActivity() {
     }
 
     private fun initializeClassifier() {
-        if (classifier == null) {
-            classifier = CopraClassifier(applicationContext)
-        }
+        classifier?.close()
+        classifier = CopraClassifier(applicationContext, selectedClassificationModel)
 
         val initialized = classifier?.initialize() == true
         if (!initialized) {
             Log.w(TAG, "Classifier initialization failed. Capture classification will be unavailable.")
+        }
+    }
+
+    private fun refreshSelectedClassificationModel() {
+        val latestSelection = classificationModelStore.getSelectedModel()
+        if (classifier == null || latestSelection.key != selectedClassificationModel.key) {
+            selectedClassificationModel = latestSelection
+            initializeClassifier()
         }
     }
 
@@ -598,6 +610,7 @@ class ScanActivity : AppCompatActivity() {
         capturedFrameBitmap = frameBitmap.copy(frameBitmap.config ?: Bitmap.Config.ARGB_8888, false)
 
         val crops = mutableListOf<CapturedDetection>()
+        val activeModel = selectedClassificationModel
         detections.forEach { detection ->
             val expandedRect = expandRectByPercent(detection.rectInFrame, 0.08f)
             val cropRect = clampRectForBitmap(expandedRect, frameBitmap.width, frameBitmap.height)
@@ -628,7 +641,9 @@ class ScanActivity : AppCompatActivity() {
                             "Too small"
                         } else {
                             null
-                        }
+                        },
+                        classificationModelKey = activeModel.key,
+                        classificationModelName = activeModel.displayName
                     )
                 )
             } catch (e: Exception) {
@@ -814,6 +829,7 @@ class ScanActivity : AppCompatActivity() {
 
         historyRepository.saveSession(
             sourceType = AnalysisSourceType.SCAN,
+            modelOption = selectedClassificationModel,
             fullImage = frameBitmap,
             items = snapshot,
             onComplete = { savedSessionId ->

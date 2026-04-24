@@ -20,11 +20,11 @@ data class ClassificationResult(
 )
 
 class CopraClassifier(
-    private val context: Context
+    private val context: Context,
+    val modelOption: ClassificationModelOption
 ) {
     companion object {
         private const val TAG = "CopraClassifier"
-        private const val MODEL_FILE = "squeezenet_glcm_phase2_float32_metadata.tflite"
         private const val INPUT_WIDTH = 224
         private const val INPUT_HEIGHT = 224
         private const val INPUT_CHANNELS = 3
@@ -38,6 +38,9 @@ class CopraClassifier(
     private var labels: List<String> = DEFAULT_LABELS
     private var initialized = false
     private var outputClassCount = DEFAULT_LABELS.size
+    private var imageInputIndex = 0
+    private var glcmInputIndex: Int? = null
+    private var requiresGlcm = false
     private val glcmBridge = GlcmPythonBridge(context)
 
     @Synchronized
@@ -45,7 +48,7 @@ class CopraClassifier(
         if (initialized && interpreter != null) return true
 
         return try {
-            val modelBuffer = loadModelFile(context, MODEL_FILE)
+            val modelBuffer = loadModelFile(context, modelOption.assetFileName)
             val options = Interpreter.Options().apply {
                 setNumThreads(2)
             }
@@ -54,7 +57,7 @@ class CopraClassifier(
             labels = readLabelsFromMetadata(modelBuffer) ?: DEFAULT_LABELS
             validateModel(ioInterpreter = interpreter!!)
             initialized = true
-            Log.d(TAG, "Initialized classifier with labels=$labels")
+            Log.d(TAG, "Initialized classifier model=${modelOption.displayName} labels=$labels")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize classifier", e)
@@ -73,12 +76,16 @@ class CopraClassifier(
         val startNs = SystemClock.elapsedRealtimeNanos()
 
         val imageBuffer = preprocessImageInput(cropBitmap)
-        val glcmBuffer = preprocessGlcmInput(cropBitmap)
         val output = Array(1) { FloatArray(outputClassCount) }
+        val inputs = arrayOfNulls<Any>(localInterpreter.inputTensorCount)
+        inputs[imageInputIndex] = imageBuffer
+        glcmInputIndex?.let { index ->
+            inputs[index] = preprocessGlcmInput(cropBitmap)
+        }
 
         val outputs = mutableMapOf<Int, Any>(0 to output)
         localInterpreter.runForMultipleInputsOutputs(
-            arrayOf(imageBuffer, glcmBuffer),
+            inputs.requireNoNulls(),
             outputs
         )
         val inferenceMs = (SystemClock.elapsedRealtimeNanos() - startNs) / 1_000_000L
@@ -102,6 +109,9 @@ class CopraClassifier(
         interpreter?.close()
         interpreter = null
         initialized = false
+        requiresGlcm = false
+        imageInputIndex = 0
+        glcmInputIndex = null
     }
 
     private fun preprocessImageInput(bitmap: Bitmap): ByteBuffer {
@@ -173,28 +183,51 @@ class CopraClassifier(
     }
 
     private fun validateModel(ioInterpreter: Interpreter) {
-        require(ioInterpreter.inputTensorCount == 2) {
-            "Expected 2 model inputs, found ${ioInterpreter.inputTensorCount}"
+        require(ioInterpreter.inputTensorCount in 1..2) {
+            "Expected 1 or 2 model inputs, found ${ioInterpreter.inputTensorCount}"
         }
         require(ioInterpreter.outputTensorCount >= 1) {
             "Expected at least 1 model output, found ${ioInterpreter.outputTensorCount}"
         }
 
-        val imageShape = ioInterpreter.getInputTensor(0).shape()
-        val glcmShape = ioInterpreter.getInputTensor(1).shape()
+        val tensorShapes = (0 until ioInterpreter.inputTensorCount).associateWith { index ->
+            ioInterpreter.getInputTensor(index).shape()
+        }
+        val imageTensorEntry = tensorShapes.entries.firstOrNull { (_, shape) ->
+            shape.size == 4 &&
+                shape[1] == INPUT_HEIGHT &&
+                shape[2] == INPUT_WIDTH &&
+                shape[3] == INPUT_CHANNELS
+        } ?: throw IllegalArgumentException("Unable to find image input tensor in selected model")
+        val glcmTensorEntry = tensorShapes.entries.firstOrNull { (_, shape) ->
+            shape.size >= 2 && shape.last() == 5
+        }
+
+        imageInputIndex = imageTensorEntry.key
+        glcmInputIndex = glcmTensorEntry?.key
+        requiresGlcm = glcmTensorEntry != null
+
+        val imageShape = imageTensorEntry.value
         val outputShape = ioInterpreter.getOutputTensor(0).shape()
 
         require(imageShape.contentEquals(intArrayOf(1, INPUT_HEIGHT, INPUT_WIDTH, INPUT_CHANNELS))) {
             "Unexpected image input shape: ${imageShape.joinToString(prefix = "[", postfix = "]")}"
         }
-        require(glcmShape.size >= 2 && glcmShape.last() == 5) {
-            "Unexpected GLCM input shape: ${glcmShape.joinToString(prefix = "[", postfix = "]")}"
+        if (ioInterpreter.inputTensorCount == 2) {
+            require(glcmTensorEntry != null) {
+                "Expected a GLCM input tensor in the selected model"
+            }
         }
         require(outputShape.size >= 2 && outputShape.last() > 0) {
             "Unexpected output shape: ${outputShape.joinToString(prefix = "[", postfix = "]")}"
         }
 
         outputClassCount = outputShape.last()
+        Log.d(
+            TAG,
+            "Validated model=${modelOption.displayName} inputs=${ioInterpreter.inputTensorCount} " +
+                "imageInputIndex=$imageInputIndex glcmInputIndex=${glcmInputIndex ?: -1} requiresGlcm=$requiresGlcm"
+        )
     }
 
     private fun toDisplayGradeLabel(rawLabel: String): String {

@@ -37,6 +37,7 @@ class HistoryDetailActivity : AppCompatActivity() {
     private lateinit var btnDeleteHistory: MaterialButton
     private lateinit var txtSource: TextView
     private lateinit var txtDate: TextView
+    private lateinit var txtModel: TextView
     private lateinit var txtCountSummary: TextView
     private lateinit var txtDetectionCount: TextView
     private lateinit var loadingView: View
@@ -56,6 +57,7 @@ class HistoryDetailActivity : AppCompatActivity() {
         btnDeleteHistory = findViewById(R.id.btnDeleteHistory)
         txtSource = findViewById(R.id.tvHistorySource)
         txtDate = findViewById(R.id.tvHistoryDate)
+        txtModel = findViewById(R.id.tvHistoryModel)
         txtCountSummary = findViewById(R.id.tvHistorySummary)
         txtDetectionCount = findViewById(R.id.tvHistoryDetectionCount)
         loadingView = findViewById(R.id.historyLoadingView)
@@ -106,6 +108,7 @@ class HistoryDetailActivity : AppCompatActivity() {
     private fun bindSessionHeader(session: AnalysisHistorySession) {
         txtSource.text = if (session.sourceType == AnalysisSourceType.SCAN) "Scan History" else "Upload History"
         txtDate.text = historyRepository.formatDate(session.createdAt)
+        txtModel.text = "Model: ${session.classificationModelName ?: "Model not recorded"}"
         txtCountSummary.text = historyRepository.buildCountSummary(session)
         txtDetectionCount.text = "${session.detectionCount} detected copra"
     }
@@ -130,7 +133,9 @@ class HistoryDetailActivity : AppCompatActivity() {
                     classificationLabel = item.classificationLabel,
                     classificationConfidence = item.classificationConfidence,
                     classificationStatus = item.classificationStatus,
-                    classificationMs = item.classificationMs
+                    classificationMs = item.classificationMs,
+                    classificationModelKey = item.classificationModelKey,
+                    classificationModelName = item.classificationModelName
                 )
             }
 

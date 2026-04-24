@@ -60,8 +60,10 @@ class UploadActivity : AppCompatActivity() {
 
     private lateinit var analysisExecutor: ExecutorService
     private lateinit var historyRepository: AnalysisHistoryRepository
+    private lateinit var classificationModelStore: ClassificationModelStore
     private var detectorModel: BestFloat32Metadata? = null
     private var classifier: CopraClassifier? = null
+    private var selectedClassificationModel: ClassificationModelOption = ClassificationModels.default
     private var uploadedDetections: MutableList<CapturedDetection> = mutableListOf()
     private var lastPersistedAnalysisSessionId = -1
 
@@ -99,6 +101,8 @@ class UploadActivity : AppCompatActivity() {
 
         analysisExecutor = Executors.newSingleThreadExecutor()
         historyRepository = AnalysisHistoryRepository.getInstance(applicationContext)
+        classificationModelStore = ClassificationModelStore(applicationContext)
+        selectedClassificationModel = classificationModelStore.getSelectedModel()
 
         initializeModels()
 
@@ -158,17 +162,33 @@ class UploadActivity : AppCompatActivity() {
         analysisExecutor.shutdownNow()
     }
 
+    override fun onResume() {
+        super.onResume()
+        refreshSelectedClassificationModel()
+    }
+
     private fun initializeModels() {
-        try {
-            detectorModel = BestFloat32Metadata.newInstance(this)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize detection model", e)
-            Toast.makeText(this, "Failed to initialize detection model.", Toast.LENGTH_SHORT).show()
+        if (detectorModel == null) {
+            try {
+                detectorModel = BestFloat32Metadata.newInstance(this)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to initialize detection model", e)
+                Toast.makeText(this, "Failed to initialize detection model.", Toast.LENGTH_SHORT).show()
+            }
         }
 
-        classifier = CopraClassifier(applicationContext)
+        classifier?.close()
+        classifier = CopraClassifier(applicationContext, selectedClassificationModel)
         if (classifier?.initialize() != true) {
             Log.w(TAG, "Classifier initialization failed for upload flow")
+        }
+    }
+
+    private fun refreshSelectedClassificationModel() {
+        val latestSelection = classificationModelStore.getSelectedModel()
+        if (classifier == null || latestSelection.key != selectedClassificationModel.key) {
+            selectedClassificationModel = latestSelection
+            initializeModels()
         }
     }
 
@@ -284,6 +304,7 @@ class UploadActivity : AppCompatActivity() {
     private fun createUploadedDetection(bitmap: Bitmap, detection: FrameDetection): CapturedDetection {
         val expandedRect = expandRectByPercent(detection.rectInFrame, 0.08f)
         val cropRect = clampRectForBitmap(expandedRect, bitmap.width, bitmap.height)
+        val activeModel = selectedClassificationModel
 
         if (cropRect == null) {
             return CapturedDetection(
@@ -292,7 +313,9 @@ class UploadActivity : AppCompatActivity() {
                 previewRect = RectF(detection.rectInPreview),
                 label = detection.label,
                 score = detection.score,
-                classificationStatus = ClassificationStatus.FAILED
+                classificationStatus = ClassificationStatus.FAILED,
+                classificationModelKey = activeModel.key,
+                classificationModelName = activeModel.displayName
             )
         }
 
@@ -312,7 +335,9 @@ class UploadActivity : AppCompatActivity() {
             label = detection.label,
             score = detection.score,
             classificationLabel = if (tooSmall) "Too small" else null,
-            classificationStatus = if (tooSmall) ClassificationStatus.FAILED else ClassificationStatus.PENDING
+            classificationStatus = if (tooSmall) ClassificationStatus.FAILED else ClassificationStatus.PENDING,
+            classificationModelKey = activeModel.key,
+            classificationModelName = activeModel.displayName
         )
     }
 
@@ -490,6 +515,7 @@ class UploadActivity : AppCompatActivity() {
         lastPersistedAnalysisSessionId = sessionId
         historyRepository.saveSession(
             sourceType = AnalysisSourceType.UPLOAD,
+            modelOption = selectedClassificationModel,
             fullImage = fullImage,
             items = results,
             onComplete = { savedSessionId ->

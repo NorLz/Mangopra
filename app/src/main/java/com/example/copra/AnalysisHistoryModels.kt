@@ -7,6 +7,8 @@ data class AnalysisHistorySession(
     val createdAt: Long,
     val sourceType: String,
     val fullImagePath: String,
+    val classificationModelKey: String?,
+    val classificationModelName: String?,
     val grade1Count: Int,
     val grade2Count: Int,
     val grade3Count: Int,
@@ -23,6 +25,8 @@ data class AnalysisHistoryItem(
     val classificationConfidence: Float?,
     val classificationStatus: ClassificationStatus,
     val classificationMs: Long?,
+    val classificationModelKey: String?,
+    val classificationModelName: String?,
     val displayOrder: Int
 )
 

@@ -31,5 +31,7 @@ data class CapturedDetection(
     val classificationLabel: String? = null,
     val classificationConfidence: Float? = null,
     val classificationStatus: ClassificationStatus = ClassificationStatus.PENDING,
-    val classificationMs: Long? = null
+    val classificationMs: Long? = null,
+    val classificationModelKey: String? = null,
+    val classificationModelName: String? = null
 )

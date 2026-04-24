@@ -77,6 +77,16 @@
                 android:textSize="16sp" />
 
             <TextView
+                android:id="@+id/tvHistoryModel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:fontFamily="@font/inter_medium"
+                android:text="Model: SqueezeNet + GLCM"
+                android:textColor="#444444"
+                android:textSize="13sp" />
+
+            <TextView
                 android:id="@+id/tvHistoryDetectionCount"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

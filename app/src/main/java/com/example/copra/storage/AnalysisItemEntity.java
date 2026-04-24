@@ -31,5 +31,7 @@ public class AnalysisItemEntity {
     public Float classificationConfidence;
     public String classificationStatus;
     public Long classificationMs;
+    public String classificationModelKey;
+    public String classificationModelName;
     public int displayOrder;
 }

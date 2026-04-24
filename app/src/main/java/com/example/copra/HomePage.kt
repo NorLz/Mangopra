@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -24,8 +25,10 @@ class HomePage : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var emptyStateText: TextView
     private lateinit var clearAllButton: MaterialButton
+    private lateinit var modelSelectorButton: MaterialButton
     private lateinit var adapter: ResultAdapter
     private lateinit var historyRepository: AnalysisHistoryRepository
+    private lateinit var classificationModelStore: ClassificationModelStore
 
     private val fullList = mutableListOf<ResultModel>()
     private var currentPage = 0
@@ -38,7 +41,10 @@ class HomePage : AppCompatActivity() {
         recyclerView = findViewById(R.id.recyclerViewCards)
         emptyStateText = findViewById(R.id.tvHistoryEmptyState)
         clearAllButton = findViewById(R.id.btnClearAllHistory)
+        modelSelectorButton = findViewById(R.id.button2)
         historyRepository = AnalysisHistoryRepository.getInstance(applicationContext)
+        classificationModelStore = ClassificationModelStore(applicationContext)
+        updateModelSelectorText()
 
         val gridLayoutManager = GridLayoutManager(this, 1)
         gridLayoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
@@ -94,6 +100,11 @@ class HomePage : AppCompatActivity() {
             confirmClearAllHistory()
         }
 
+        val modelSelectorArrow = findViewById<ImageView>(R.id.imageView19)
+        val openModelSelector = View.OnClickListener { showModelSelectionDialog() }
+        modelSelectorButton.setOnClickListener(openModelSelector)
+        modelSelectorArrow.setOnClickListener(openModelSelector)
+
         val calendarButton: ImageButton = findViewById(R.id.imageButton)
         calendarButton.setOnClickListener {
             val calendar = Calendar.getInstance()
@@ -115,7 +126,35 @@ class HomePage : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        updateModelSelectorText()
         loadHistorySessions()
+    }
+
+    private fun updateModelSelectorText() {
+        val selectedModel = classificationModelStore.getSelectedModel()
+        modelSelectorButton.text = "Model: ${selectedModel.displayName}"
+    }
+
+    private fun showModelSelectionDialog() {
+        val currentModel = classificationModelStore.getSelectedModel()
+        val modelNames = ClassificationModels.all.map { it.displayName }.toTypedArray()
+        val checkedIndex = ClassificationModels.all.indexOfFirst { it.key == currentModel.key }
+
+        AlertDialog.Builder(this)
+            .setTitle("Choose classification model")
+            .setSingleChoiceItems(modelNames, checkedIndex) { dialog, which ->
+                val selectedModel = ClassificationModels.all[which]
+                classificationModelStore.setSelectedModel(selectedModel)
+                updateModelSelectorText()
+                Toast.makeText(
+                    this,
+                    "${selectedModel.displayName} is now the default model.",
+                    Toast.LENGTH_SHORT
+                ).show()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun loadHistorySessions() {
