@@ -1,6 +1,5 @@
 package com.example.copra
 
-import android.app.DatePickerDialog
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -14,7 +13,6 @@ import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
-import java.util.Calendar
 
 class HomePage : AppCompatActivity() {
 
@@ -104,24 +102,6 @@ class HomePage : AppCompatActivity() {
         val openModelSelector = View.OnClickListener { showModelSelectionDialog() }
         modelSelectorButton.setOnClickListener(openModelSelector)
         modelSelectorArrow.setOnClickListener(openModelSelector)
-
-        val calendarButton: ImageButton = findViewById(R.id.imageButton)
-        calendarButton.setOnClickListener {
-            val calendar = Calendar.getInstance()
-            DatePickerDialog(
-                this,
-                { _, year, month, day ->
-                    Toast.makeText(
-                        this,
-                        "Selected: ${month + 1}/$day/$year",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                },
-                calendar.get(Calendar.YEAR),
-                calendar.get(Calendar.MONTH),
-                calendar.get(Calendar.DAY_OF_MONTH)
-            ).show()
-        }
     }
 
     override fun onResume() {
