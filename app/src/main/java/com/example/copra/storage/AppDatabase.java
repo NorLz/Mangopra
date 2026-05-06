@@ -14,7 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
                 AnalysisSessionEntity.class,
                 AnalysisItemEntity.class
         },
-        version = 3,
+        version = 4,
         exportSchema = false
 )
 public abstract class AppDatabase extends RoomDatabase {
@@ -42,6 +42,15 @@ public abstract class AppDatabase extends RoomDatabase {
             database.execSQL("ALTER TABLE analysis_sessions ADD COLUMN pricingSyncedAt INTEGER");
         }
     };
+    private static final Migration MIGRATION_3_4 = new Migration(3, 4) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE analysis_sessions ADD COLUMN averageClassificationMs REAL");
+            database.execSQL("ALTER TABLE analysis_sessions ADD COLUMN minClassificationMs INTEGER");
+            database.execSQL("ALTER TABLE analysis_sessions ADD COLUMN maxClassificationMs INTEGER");
+            database.execSQL("ALTER TABLE analysis_sessions ADD COLUMN latencySampleCount INTEGER");
+        }
+    };
 
     public abstract AnalysisSessionDao analysisSessionDao();
 
@@ -56,6 +65,7 @@ public abstract class AppDatabase extends RoomDatabase {
                             )
                             .addMigrations(MIGRATION_1_2)
                             .addMigrations(MIGRATION_2_3)
+                            .addMigrations(MIGRATION_3_4)
                             .fallbackToDestructiveMigration()
                             .build();
                 }

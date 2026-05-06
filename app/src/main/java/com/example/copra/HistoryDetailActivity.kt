@@ -43,6 +43,8 @@ class HistoryDetailActivity : AppCompatActivity() {
     private lateinit var txtComputedPricing: TextView
     private lateinit var txtPricingMeta: TextView
     private lateinit var txtPricingProportions: TextView
+    private lateinit var txtLatency: TextView
+    private lateinit var txtLatencyMeta: TextView
     private lateinit var loadingView: View
 
     private val decodeExecutor: ExecutorService = Executors.newSingleThreadExecutor()
@@ -66,6 +68,8 @@ class HistoryDetailActivity : AppCompatActivity() {
         txtComputedPricing = findViewById(R.id.tvHistoryComputedPricing)
         txtPricingMeta = findViewById(R.id.tvHistoryPricingMeta)
         txtPricingProportions = findViewById(R.id.tvHistoryPricingProportions)
+        txtLatency = findViewById(R.id.tvHistoryLatency)
+        txtLatencyMeta = findViewById(R.id.tvHistoryLatencyMeta)
         loadingView = findViewById(R.id.historyLoadingView)
         btnViewResults.isEnabled = false
         btnDeleteHistory.isEnabled = false
@@ -128,6 +132,8 @@ class HistoryDetailActivity : AppCompatActivity() {
             grade2Count = session.grade2Count,
             grade3Count = session.grade3Count
         )
+        txtLatency.text = ClassificationLatencyFormatter.formatHeadline(session.latency)
+        txtLatencyMeta.text = ClassificationLatencyFormatter.formatMeta(session.latency)
     }
 
     private fun decodeAssets(session: AnalysisHistorySession) {
@@ -266,6 +272,8 @@ class HistoryDetailActivity : AppCompatActivity() {
         val batchPriceCaption = view.findViewById<TextView>(R.id.tvBatchPriceCaption)
         val batchPriceMeta = view.findViewById<TextView>(R.id.tvBatchPriceMeta)
         val batchPriceProportions = view.findViewById<TextView>(R.id.tvBatchPriceProportions)
+        val latencyValue = view.findViewById<TextView>(R.id.tvLatencyValue)
+        val latencyMeta = view.findViewById<TextView>(R.id.tvLatencyMeta)
 
         recycler.layoutManager = GridLayoutManager(this, 3)
         recycler.isNestedScrollingEnabled = false
@@ -284,7 +292,10 @@ class HistoryDetailActivity : AppCompatActivity() {
             batchPriceValue = batchPriceValue,
             batchPriceCaption = batchPriceCaption,
             batchPriceMeta = batchPriceMeta,
-            batchPriceProportions = batchPriceProportions
+            batchPriceProportions = batchPriceProportions,
+            latency = session.latency,
+            latencyValue = latencyValue,
+            latencyMeta = latencyMeta
         )
 
         if (allItems.isEmpty()) {
@@ -345,7 +356,10 @@ class HistoryDetailActivity : AppCompatActivity() {
         batchPriceValue: TextView,
         batchPriceCaption: TextView,
         batchPriceMeta: TextView,
-        batchPriceProportions: TextView
+        batchPriceProportions: TextView,
+        latency: ClassificationLatencySummary?,
+        latencyValue: TextView,
+        latencyMeta: TextView
     ) {
         pricingCard.visibility = View.VISIBLE
         batchPriceValue.text = PricingFormatter.formatBatchPrice(pricing)
@@ -361,6 +375,8 @@ class HistoryDetailActivity : AppCompatActivity() {
             grade2Count = grade2Count,
             grade3Count = grade3Count
         )
+        latencyValue.text = ClassificationLatencyFormatter.formatDetail(latency)
+        latencyMeta.text = ClassificationLatencyFormatter.formatMeta(latency)
     }
 
     private fun confirmDeleteCurrentHistory() {

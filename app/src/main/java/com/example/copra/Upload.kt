@@ -387,6 +387,8 @@ class UploadActivity : AppCompatActivity() {
         val batchPriceCaption = view.findViewById<TextView>(R.id.tvBatchPriceCaption)
         val batchPriceMeta = view.findViewById<TextView>(R.id.tvBatchPriceMeta)
         val batchPriceProportions = view.findViewById<TextView>(R.id.tvBatchPriceProportions)
+        val latencyValue = view.findViewById<TextView>(R.id.tvLatencyValue)
+        val latencyMeta = view.findViewById<TextView>(R.id.tvLatencyMeta)
 
         recycler.layoutManager = GridLayoutManager(this, 3)
         recycler.isNestedScrollingEnabled = false
@@ -418,6 +420,9 @@ class UploadActivity : AppCompatActivity() {
             grade2Count = grade2Count,
             grade3Count = grade3Count
         )
+        val latency = ClassificationLatency.fromCapturedItems(allDetected)
+        latencyValue.text = ClassificationLatencyFormatter.formatDetail(latency)
+        latencyMeta.text = ClassificationLatencyFormatter.formatMeta(latency)
 
         val adapter = CapturedImageAdapter(emptyList())
         recycler.adapter = adapter

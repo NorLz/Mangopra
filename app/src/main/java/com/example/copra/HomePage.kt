@@ -165,6 +165,7 @@ class HomePage : AppCompatActivity() {
                             status = "${session.detectionCount} copra analyzed",
                             gradeSummary = "Grades  I:${session.grade1Count}  II:${session.grade2Count}  III:${session.grade3Count}",
                             pricingSummary = "Estimated price per kg: ${PricingFormatter.formatBatchPrice(session.pricing)}",
+                            latencySummary = ClassificationLatencyFormatter.formatHeadline(session.latency),
                             date = historyRepository.formatDate(session.createdAt),
                             grade1Count = session.grade1Count,
                             grade2Count = session.grade2Count,

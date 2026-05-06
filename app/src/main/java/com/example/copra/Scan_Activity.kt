@@ -1070,6 +1070,11 @@ class ScanActivity : AppCompatActivity() {
                 grade2Count = grade2Count,
                 grade3Count = grade3Count
             )
+        val latency = ClassificationLatency.fromCapturedItems(capturedDetections)
+        view.findViewById<TextView>(R.id.tvLatencyValue)?.text =
+            ClassificationLatencyFormatter.formatDetail(latency)
+        view.findViewById<TextView>(R.id.tvLatencyMeta)?.text =
+            ClassificationLatencyFormatter.formatMeta(latency)
     }
 
     private fun gradeBucket(label: String?): Int {

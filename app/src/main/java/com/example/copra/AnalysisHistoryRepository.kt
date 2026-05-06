@@ -73,6 +73,7 @@ class AnalysisHistoryRepository private constructor(context: Context) {
                 val cachedLatestPricing = pricingRepository.getCachedPricing()
                 val sessions = dao.getAllSessions().map { entity ->
                     val sessionPricing = resolvePricing(entity, cachedLatestPricing)
+                    val sessionLatency = resolveLatency(entity, emptyList())
                     AnalysisHistorySession(
                         id = entity.id,
                         createdAt = entity.createdAt,
@@ -84,7 +85,8 @@ class AnalysisHistoryRepository private constructor(context: Context) {
                         grade2Count = entity.grade2Count,
                         grade3Count = entity.grade3Count,
                         detectionCount = entity.detectionCount,
-                        pricing = sessionPricing
+                        pricing = sessionPricing,
+                        latency = sessionLatency
                     )
                 }
                 mainHandler.post { onComplete(sessions) }
@@ -194,6 +196,7 @@ class AnalysisHistoryRepository private constructor(context: Context) {
             grade3Count = grade3Count,
             latestPricing = pricingRepository.getCachedPricing()
         )
+        val sessionLatency = ClassificationLatency.fromCapturedItems(items)
 
         val sessionEntity = AnalysisSessionEntity().apply {
             createdAt = timestamp
@@ -214,6 +217,10 @@ class AnalysisHistoryRepository private constructor(context: Context) {
             pricingSourceLabel = sessionPricing?.sourceLabel
             pricingRecordedAt = sessionPricing?.recordedAt
             pricingSyncedAt = sessionPricing?.syncedAtMillis
+            averageClassificationMs = sessionLatency?.averageMs
+            minClassificationMs = sessionLatency?.minMs
+            maxClassificationMs = sessionLatency?.maxMs
+            latencySampleCount = sessionLatency?.sampleCount
         }
         val sessionId = dao.insertSession(sessionEntity)
 
@@ -243,6 +250,28 @@ class AnalysisHistoryRepository private constructor(context: Context) {
 
     private fun AnalysisSessionWithItems.toDomain(): AnalysisHistorySession {
         val resolvedPricing = resolvePricing(session, pricingRepository.getCachedPricing())
+        val domainItems = items.sortedBy { it.displayOrder }.map { item ->
+            AnalysisHistoryItem(
+                id = item.id,
+                sessionId = item.sessionId,
+                cropImagePath = item.cropImagePath,
+                sourceRect = RectF(
+                    item.sourceLeft,
+                    item.sourceTop,
+                    item.sourceRight,
+                    item.sourceBottom
+                ),
+                classificationLabel = item.classificationLabel,
+                classificationConfidence = item.classificationConfidence,
+                classificationStatus = item.classificationStatus
+                    ?.let { status -> ClassificationStatus.valueOf(status) }
+                    ?: ClassificationStatus.FAILED,
+                classificationMs = item.classificationMs,
+                classificationModelKey = item.classificationModelKey,
+                classificationModelName = item.classificationModelName,
+                displayOrder = item.displayOrder
+            )
+        }
         return AnalysisHistorySession(
             id = session.id,
             createdAt = session.createdAt,
@@ -255,28 +284,8 @@ class AnalysisHistoryRepository private constructor(context: Context) {
             grade3Count = session.grade3Count,
             detectionCount = session.detectionCount,
             pricing = resolvedPricing,
-            items = items.sortedBy { it.displayOrder }.map { item ->
-                AnalysisHistoryItem(
-                    id = item.id,
-                    sessionId = item.sessionId,
-                    cropImagePath = item.cropImagePath,
-                    sourceRect = RectF(
-                        item.sourceLeft,
-                        item.sourceTop,
-                        item.sourceRight,
-                        item.sourceBottom
-                    ),
-                    classificationLabel = item.classificationLabel,
-                    classificationConfidence = item.classificationConfidence,
-                    classificationStatus = item.classificationStatus
-                        ?.let { status -> ClassificationStatus.valueOf(status) }
-                        ?: ClassificationStatus.FAILED,
-                    classificationMs = item.classificationMs,
-                    classificationModelKey = item.classificationModelKey,
-                    classificationModelName = item.classificationModelName,
-                    displayOrder = item.displayOrder
-                )
-            }
+            latency = resolveLatency(session, domainItems),
+            items = domainItems
         )
     }
 
@@ -310,6 +319,18 @@ class AnalysisHistoryRepository private constructor(context: Context) {
             grade3Count = entity.grade3Count,
             latestPricing = cachedLatestPricing
         )
+    }
+
+    private fun resolveLatency(
+        entity: AnalysisSessionEntity,
+        items: List<AnalysisHistoryItem>
+    ): ClassificationLatencySummary? {
+        return ClassificationLatency.fromPersisted(
+            averageMs = entity.averageClassificationMs,
+            minMs = entity.minClassificationMs,
+            maxMs = entity.maxClassificationMs,
+            sampleCount = entity.latencySampleCount
+        ) ?: ClassificationLatency.fromHistoryItems(items)
     }
 
     private fun writeBitmap(bitmap: Bitmap, targetFile: File) {

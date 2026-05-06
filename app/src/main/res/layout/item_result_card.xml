@@ -104,6 +104,18 @@
                 android:textSize="13sp" />
 
             <TextView
+                android:id="@+id/cardLatency"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:ellipsize="end"
+                android:fontFamily="@font/inter_medium"
+                android:maxLines="2"
+                android:text="Classifier latency: 38 ms/copra avg"
+                android:textColor="#5B5558"
+                android:textSize="12sp" />
+
+            <TextView
                 android:id="@+id/cardDate"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

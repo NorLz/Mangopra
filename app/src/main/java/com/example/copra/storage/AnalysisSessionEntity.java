@@ -26,4 +26,8 @@ public class AnalysisSessionEntity {
     public String pricingSourceLabel;
     public String pricingRecordedAt;
     public Long pricingSyncedAt;
+    public Double averageClassificationMs;
+    public Long minClassificationMs;
+    public Long maxClassificationMs;
+    public Integer latencySampleCount;
 }

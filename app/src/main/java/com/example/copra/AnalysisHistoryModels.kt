@@ -14,6 +14,7 @@ data class AnalysisHistorySession(
     val grade3Count: Int,
     val detectionCount: Int,
     val pricing: AnalysisPricing? = null,
+    val latency: ClassificationLatencySummary? = null,
     val items: List<AnalysisHistoryItem> = emptyList()
 )
 
