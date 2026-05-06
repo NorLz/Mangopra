@@ -11,6 +11,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
@@ -38,6 +39,7 @@ class HomePage : AppCompatActivity() {
     private var currentPage = 0
     private val pageSize = 6
     private var latestPricing: LatestPricing? = null
+    private var latestPricingNotice: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -270,13 +272,25 @@ class HomePage : AppCompatActivity() {
         if (!force && !pricingRepository.shouldRefresh(HOME_REFRESH_STALE_MS)) return
 
         pricingRepository.refreshLatestPricing(
-            onComplete = { pricing ->
-                latestPricing = pricing
+            onComplete = { result ->
+                latestPricing = result.pricing
+                latestPricingNotice = if (result.hasChanges) {
+                    "Latest pricing updated and saved on this device for offline use."
+                } else {
+                    "No new pricing changes were found. Your phone is still using the latest saved pricing."
+                }
                 updatePricingFabState()
-                loadHistorySessions()
+                if (result.hasChanges) {
+                    loadHistorySessions()
+                }
             },
             onError = { throwable, cached ->
                 latestPricing = cached ?: latestPricing
+                latestPricingNotice = if (latestPricing != null) {
+                    "We could not reach the server, so the app is showing your last saved pricing."
+                } else {
+                    "We could not reach the server and there is no saved pricing yet."
+                }
                 updatePricingFabState()
                 Log.w(TAG, "Pricing refresh failed; using cached pricing if available", throwable)
             },
@@ -307,6 +321,7 @@ class HomePage : AppCompatActivity() {
         val refreshButton = view.findViewById<MaterialButton>(R.id.btnRefreshPricing)
         val refreshHint = view.findViewById<TextView>(R.id.tvPricingRefreshHint)
         val refreshProgress = view.findViewById<ProgressBar>(R.id.progressRefreshPricing)
+        val refreshIcon = AppCompatResources.getDrawable(this, R.drawable.system_update_alt)
 
         fun bindPricingSheet(pricing: LatestPricing?) {
             view.findViewById<TextView>(R.id.tvPricingStatus).text = if (pricing != null) {
@@ -323,9 +338,9 @@ class HomePage : AppCompatActivity() {
             view.findViewById<TextView>(R.id.tvPricingCommodity).text =
                 pricing?.commodityName ?: "Latest copra pricing unavailable"
             view.findViewById<TextView>(R.id.tvPricingEffectiveDate).text =
-                "Effective date: ${PricingFormatter.formatEffectiveDate(pricing?.effectiveDate)}"
+                "Price effective from: ${PricingFormatter.formatEffectiveDate(pricing?.effectiveDate)}"
             view.findViewById<TextView>(R.id.tvPricingRecordedAt).text =
-                "Backend recorded: ${PricingFormatter.formatRecordedAt(pricing?.recordedAt)}"
+                "Saved on server: ${PricingFormatter.formatRecordedAt(pricing?.recordedAt)}"
             view.findViewById<TextView>(R.id.tvPricingSyncedAt).text =
                 "Saved on device: ${PricingFormatter.formatSyncedAt(pricing?.syncedAtMillis)}"
             view.findViewById<TextView>(R.id.tvPricingSource).text =
@@ -342,6 +357,7 @@ class HomePage : AppCompatActivity() {
             refreshButton.isEnabled = !isRefreshing
             refreshButton.alpha = if (isRefreshing) 0.55f else 1f
             refreshButton.text = buttonLabel
+            refreshButton.icon = if (isRefreshing) null else refreshIcon
             refreshHint.text = helperText
             refreshProgress.visibility = if (isRefreshing) View.VISIBLE else View.GONE
         }
@@ -352,13 +368,15 @@ class HomePage : AppCompatActivity() {
             helperText = if (pricingRepository.isRefreshInProgress()) {
                 "We are already checking the latest backend pricing. The button will re-enable when it finishes."
             } else {
-                if (cachedPricing != null) {
+                if (!latestPricingNotice.isNullOrBlank()) {
+                    latestPricingNotice!!
+                } else if (cachedPricing != null) {
                     "You can keep using this saved pricing offline, or refresh now to check for a newer update."
                 } else {
                     "Download the latest pricing once so it stays available offline."
                 }
             },
-            buttonLabel = if (pricingRepository.isRefreshInProgress()) "Refreshing..." else "Refresh Latest Pricing"
+            buttonLabel = if (pricingRepository.isRefreshInProgress()) "Please wait" else "Refresh Latest Pricing"
         )
 
         refreshButton.setOnClickListener {
@@ -374,29 +392,37 @@ class HomePage : AppCompatActivity() {
             updateRefreshUi(
                 isRefreshing = true,
                 helperText = "Checking the server for a newer pricing update...",
-                buttonLabel = "Refreshing..."
+                buttonLabel = "Please wait"
             )
             pricingRepository.refreshLatestPricing(
-                onComplete = { pricing ->
-                    latestPricing = pricing
-                    bindPricingSheet(pricing)
+                onComplete = { result ->
+                    latestPricing = result.pricing
+                    latestPricingNotice = if (result.hasChanges) {
+                        "Latest pricing updated and saved on this device for offline use."
+                    } else {
+                        "No new pricing changes were found. Your phone is still using the latest saved pricing."
+                    }
+                    bindPricingSheet(result.pricing)
                     updateRefreshUi(
                         isRefreshing = false,
-                        helperText = "Latest pricing updated and saved on this device for offline use.",
+                        helperText = latestPricingNotice!!,
                         buttonLabel = "Refresh Latest Pricing"
                     )
-                    loadHistorySessions()
+                    if (result.hasChanges) {
+                        loadHistorySessions()
+                    }
                 },
                 onError = { _, fallback ->
                     latestPricing = fallback ?: latestPricing
+                    latestPricingNotice = if (latestPricing != null) {
+                        "We could not reach the server, so the app is showing your last saved pricing."
+                    } else {
+                        "We could not reach the server and there is no saved pricing yet."
+                    }
                     bindPricingSheet(latestPricing)
                     updateRefreshUi(
                         isRefreshing = false,
-                        helperText = if (latestPricing != null) {
-                            "We could not reach the server, so the app is showing your last saved pricing."
-                        } else {
-                            "We could not reach the server and there is no saved pricing yet."
-                        },
+                        helperText = latestPricingNotice!!,
                         buttonLabel = "Refresh Latest Pricing"
                     )
                 },
@@ -404,7 +430,7 @@ class HomePage : AppCompatActivity() {
                     updateRefreshUi(
                         isRefreshing = true,
                         helperText = "A refresh is already in progress. Please wait for it to finish.",
-                        buttonLabel = "Refreshing..."
+                        buttonLabel = "Please wait"
                     )
                 }
             )

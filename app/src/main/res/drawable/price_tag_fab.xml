@@ -1,7 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
-<inset xmlns:android="http://schemas.android.com/apk/res/android"
-    android:drawable="@drawable/price_tag"
-    android:insetLeft="1dp"
-    android:insetTop="1dp"
-    android:insetRight="0dp"
-    android:insetBottom="0dp" />
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group
+        android:pivotX="12"
+        android:pivotY="12"
+        android:scaleX="0.9"
+        android:scaleY="0.9"
+        android:translateX="1.6"
+        android:translateY="1.6">
+        <path
+            android:fillColor="@android:color/transparent"
+            android:pathData="M11,3H5C3.9,3 3,3.9 3,5V11C3,11.53 3.21,12.04 3.59,12.41L11.59,20.41C12.37,21.19 13.63,21.19 14.41,20.41L20.41,14.41C21.19,13.63 21.19,12.37 20.41,11.59L12.41,3.59C12.04,3.21 11.53,3 11,3Z"
+            android:strokeColor="#000000"
+            android:strokeLineJoin="round"
+            android:strokeWidth="1.8" />
+        <path
+            android:fillColor="@android:color/transparent"
+            android:pathData="M7.25,8.25m-1.25,0a1.25,1.25 0,1 1,2.5 0a1.25,1.25 0,1 1,-2.5 0"
+            android:strokeColor="#000000"
+            android:strokeWidth="1.6" />
+    </group>
+</vector>

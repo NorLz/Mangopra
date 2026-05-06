@@ -12,6 +12,11 @@ import java.util.concurrent.Executors
 
 class PricingRepository private constructor(context: Context) {
 
+    data class RefreshResult(
+        val pricing: LatestPricing,
+        val hasChanges: Boolean
+    )
+
     companion object {
         private const val TAG = "PricingRepository"
         private const val PREFS_NAME = "pricing_cache"
@@ -57,7 +62,7 @@ class PricingRepository private constructor(context: Context) {
     }
 
     fun refreshLatestPricing(
-        onComplete: (LatestPricing) -> Unit,
+        onComplete: (RefreshResult) -> Unit,
         onError: ((Throwable, LatestPricing?) -> Unit)? = null,
         onSkipped: (() -> Unit)? = null
     ) {
@@ -99,9 +104,22 @@ class PricingRepository private constructor(context: Context) {
                         throw IllegalStateException("Pricing service returned HTTP $statusCode: $responseBody")
                     }
 
-                    val pricing = parsePricingJson(JSONObject(responseBody), System.currentTimeMillis())
-                    cachePricing(pricing)
-                    mainHandler.post { onComplete(pricing) }
+                    val fetchedPricing = parsePricingJson(JSONObject(responseBody), System.currentTimeMillis())
+                    val hasChanges = cached?.hasSamePricingValues(fetchedPricing) != true
+                    val pricingToUse = if (!hasChanges) {
+                        cached
+                    } else {
+                        cachePricing(fetchedPricing)
+                        fetchedPricing
+                    }
+                    mainHandler.post {
+                        onComplete(
+                            RefreshResult(
+                                pricing = pricingToUse,
+                                hasChanges = hasChanges
+                            )
+                        )
+                    }
                 }
             } catch (throwable: Throwable) {
                 Log.e(TAG, "Failed to refresh latest pricing", throwable)
@@ -118,6 +136,15 @@ class PricingRepository private constructor(context: Context) {
         prefs.edit()
             .putString(KEY_PRICING_JSON, serializePricing(pricing).toString())
             .apply()
+    }
+
+    private fun LatestPricing.hasSamePricingValues(other: LatestPricing): Boolean {
+        return commodityCode == other.commodityCode &&
+            commodityName == other.commodityName &&
+            grade1PricePerKg == other.grade1PricePerKg &&
+            grade2PricePerKg == other.grade2PricePerKg &&
+            grade3PricePerKg == other.grade3PricePerKg &&
+            unit == other.unit
     }
 
     private fun serializePricing(pricing: LatestPricing): JSONObject {
