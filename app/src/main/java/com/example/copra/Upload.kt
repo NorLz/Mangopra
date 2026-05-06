@@ -60,6 +60,7 @@ class UploadActivity : AppCompatActivity() {
 
     private lateinit var analysisExecutor: ExecutorService
     private lateinit var historyRepository: AnalysisHistoryRepository
+    private lateinit var pricingRepository: PricingRepository
     private lateinit var classificationModelStore: ClassificationModelStore
     private var detectorModel: BestFloat32Metadata? = null
     private var classifier: CopraClassifier? = null
@@ -101,6 +102,7 @@ class UploadActivity : AppCompatActivity() {
 
         analysisExecutor = Executors.newSingleThreadExecutor()
         historyRepository = AnalysisHistoryRepository.getInstance(applicationContext)
+        pricingRepository = PricingRepository.getInstance(applicationContext)
         classificationModelStore = ClassificationModelStore(applicationContext)
         selectedClassificationModel = classificationModelStore.getSelectedModel()
 
@@ -381,14 +383,41 @@ class UploadActivity : AppCompatActivity() {
         val btnPrev = view.findViewById<MaterialButton>(R.id.btnPrev)
         val etPageNumber = view.findViewById<TextInputEditText>(R.id.etPageNumber)
         val tvTotalPages = view.findViewById<TextView>(R.id.tvTotalPages)
+        val batchPriceValue = view.findViewById<TextView>(R.id.tvBatchPriceValue)
+        val batchPriceCaption = view.findViewById<TextView>(R.id.tvBatchPriceCaption)
+        val batchPriceMeta = view.findViewById<TextView>(R.id.tvBatchPriceMeta)
+        val batchPriceProportions = view.findViewById<TextView>(R.id.tvBatchPriceProportions)
 
         recycler.layoutManager = GridLayoutManager(this, 3)
+        recycler.isNestedScrollingEnabled = false
 
         val allDetected = uploadedDetections.toList()
         val readyDetections = allDetected.filter { it.classificationStatus == ClassificationStatus.READY }
-        grade1.text = readyDetections.count { gradeBucket(it.classificationLabel) == 1 }.toString()
-        grade2.text = readyDetections.count { gradeBucket(it.classificationLabel) == 2 }.toString()
-        grade3.text = readyDetections.count { gradeBucket(it.classificationLabel) == 3 }.toString()
+        val grade1Count = readyDetections.count { gradeBucket(it.classificationLabel) == 1 }
+        val grade2Count = readyDetections.count { gradeBucket(it.classificationLabel) == 2 }
+        val grade3Count = readyDetections.count { gradeBucket(it.classificationLabel) == 3 }
+        grade1.text = grade1Count.toString()
+        grade2.text = grade2Count.toString()
+        grade3.text = grade3Count.toString()
+        val pricing = PricingCalculator.compute(
+            grade1Count = grade1Count,
+            grade2Count = grade2Count,
+            grade3Count = grade3Count,
+            latestPricing = pricingRepository.getCachedPricing()
+        )
+        batchPriceValue.text = PricingFormatter.formatBatchPrice(pricing)
+        batchPriceCaption.text = PricingFormatter.buildBatchPriceCaption(pricing)
+        batchPriceMeta.text = if (pricing != null) {
+            "Effective date: ${PricingFormatter.formatEffectiveDate(pricing.effectiveDate)}\n" +
+                "Saved on device: ${PricingFormatter.formatSyncedAt(pricing.syncedAtMillis)}"
+        } else {
+            "Open Home while online to download the latest pricing for offline use."
+        }
+        batchPriceProportions.text = PricingFormatter.buildProportionSummary(
+            grade1Count = grade1Count,
+            grade2Count = grade2Count,
+            grade3Count = grade3Count
+        )
 
         val adapter = CapturedImageAdapter(emptyList())
         recycler.adapter = adapter

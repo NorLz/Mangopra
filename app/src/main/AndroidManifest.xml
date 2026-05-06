@@ -4,6 +4,7 @@
 
     <!-- Camera permission -->
     <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
 
     <!-- Camera hardware feature -->
     <uses-feature android:name="android.hardware.camera.any" />

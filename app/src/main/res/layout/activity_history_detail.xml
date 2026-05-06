@@ -5,18 +5,23 @@
     android:layout_height="match_parent"
     android:background="#FEFEFE">
 
-    <ImageView
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btnHistoryBack"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
-        android:background="@drawable/round_bg"
-        android:padding="10dp"
-        android:src="@drawable/arrow_small_left"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="4dp"
+        android:backgroundTint="#FCE9CE"
+        android:gravity="center"
+        android:paddingStart="40dp"
+        android:paddingEnd="32dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:tint="#1C1B1F" />
+        app:cornerRadius="10dp"
+        app:icon="@drawable/arrow_small_left"
+        app:iconGravity="textStart"
+        app:iconTint="#1C1B1F" />
 
     <TextView
         android:layout_width="0dp"
@@ -74,7 +79,7 @@
                 android:fontFamily="@font/inter_bold"
                 android:text="04/18/26 09:30 AM"
                 android:textColor="#1C1B1F"
-                android:textSize="16sp" />
+                android:textSize="15sp" />
 
             <TextView
                 android:id="@+id/tvHistoryModel"
@@ -84,7 +89,7 @@
                 android:fontFamily="@font/inter_medium"
                 android:text="Model: SqueezeNet + GLCM"
                 android:textColor="#444444"
-                android:textSize="13sp" />
+                android:textSize="12sp" />
 
             <TextView
                 android:id="@+id/tvHistoryDetectionCount"
@@ -94,7 +99,7 @@
                 android:fontFamily="@font/inter_regular"
                 android:text="6 detected copra"
                 android:textColor="#444444"
-                android:textSize="14sp" />
+                android:textSize="13sp" />
 
             <TextView
                 android:id="@+id/tvHistorySummary"
@@ -104,7 +109,52 @@
                 android:fontFamily="@font/inter_bold"
                 android:text="I:2  II:3  III:1"
                 android:textColor="#1C1B1F"
-                android:textSize="14sp" />
+                android:textSize="13sp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="14dp"
+                android:background="#EFE8EA" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:fontFamily="@font/inter_bold"
+                android:text="Pricing Snapshot"
+                android:textColor="#1C1B1F"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tvHistoryComputedPricing"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:fontFamily="@font/inter_extrabold"
+                android:text="Estimated price per kg: PHP 53.00/kg"
+                android:textColor="#1C1B1F"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/tvHistoryPricingMeta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:fontFamily="@font/inter_regular"
+                android:text="Effective date: May 6, 2026"
+                android:textColor="#666666"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tvHistoryPricingProportions"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:fontFamily="@font/inter_regular"
+                android:text="Proportion  I: 2/6 (33%)  II: 3/6 (50%)  III: 1/6 (17%)"
+                android:textColor="#666666"
+                android:textSize="12sp" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
@@ -114,7 +164,7 @@
         android:layout_height="0dp"
         android:layout_marginHorizontal="16dp"
         android:layout_marginTop="16dp"
-        android:layout_marginBottom="16dp"
+        android:layout_marginBottom="28dp"
         android:background="#F3F3F3"
         app:layout_constraintBottom_toTopOf="@id/layoutHistoryActions"
         app:layout_constraintEnd_toEndOf="parent"

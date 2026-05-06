@@ -287,5 +287,25 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabLatestPricing"
+            android:layout_width="62dp"
+            android:layout_height="62dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginBottom="96dp"
+            android:contentDescription="View latest copra pricing"
+            android:elevation="10dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/price_tag_fab"
+            app:backgroundTint="#FCE9CE"
+            app:borderWidth="1dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:maxImageSize="26dp"
+            app:rippleColor="#33AE7049"
+            app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.Copra.CircularFab"
+            app:tint="#1C1B1F"
+            app:useCompatPadding="true" />
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

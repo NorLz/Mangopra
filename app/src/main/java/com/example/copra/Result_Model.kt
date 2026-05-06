@@ -6,6 +6,7 @@ data class ResultModel(
     val sourceLabel: String,
     val status: String,
     val gradeSummary: String,
+    val pricingSummary: String,
     val date: String,
     val grade1Count: Int,
     val grade2Count: Int,

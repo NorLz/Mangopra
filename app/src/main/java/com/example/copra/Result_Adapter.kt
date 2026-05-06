@@ -29,6 +29,7 @@ class ResultAdapter(
         val image: ImageView = view.findViewById(R.id.cardImage)
         val status: TextView = view.findViewById(R.id.cardStatus)
         val confidence: TextView = view.findViewById(R.id.cardConfidence)
+        val pricing: TextView = view.findViewById(R.id.cardPricing)
         val date: TextView = view.findViewById(R.id.cardDate)
         val gradeLabel: TextView = view.findViewById(R.id.iconTopStart)
         val gradeIcon: ImageView = view.findViewById(R.id.iconTopEnd)
@@ -71,6 +72,7 @@ class ResultAdapter(
 
             holder.status.text = item.status
             holder.confidence.text = item.gradeSummary
+            holder.pricing.text = item.pricingSummary
             holder.date.text = item.date
             holder.gradeLabel.text = item.sourceLabel
 

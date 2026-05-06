@@ -6,6 +6,7 @@ import android.util.Log
 import android.view.View
 import android.widget.ImageButton
 import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -13,11 +14,14 @@ import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 
 class HomePage : AppCompatActivity() {
 
     companion object {
         private const val TAG = "HomePage"
+        private const val HOME_REFRESH_STALE_MS = 15 * 60 * 1000L
     }
 
     private lateinit var recyclerView: RecyclerView
@@ -26,11 +30,14 @@ class HomePage : AppCompatActivity() {
     private lateinit var modelSelectorButton: MaterialButton
     private lateinit var adapter: ResultAdapter
     private lateinit var historyRepository: AnalysisHistoryRepository
+    private lateinit var pricingRepository: PricingRepository
     private lateinit var classificationModelStore: ClassificationModelStore
+    private lateinit var pricingFab: FloatingActionButton
 
     private val fullList = mutableListOf<ResultModel>()
     private var currentPage = 0
     private val pageSize = 6
+    private var latestPricing: LatestPricing? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,8 +48,12 @@ class HomePage : AppCompatActivity() {
         clearAllButton = findViewById(R.id.btnClearAllHistory)
         modelSelectorButton = findViewById(R.id.button2)
         historyRepository = AnalysisHistoryRepository.getInstance(applicationContext)
+        pricingRepository = PricingRepository.getInstance(applicationContext)
         classificationModelStore = ClassificationModelStore(applicationContext)
+        pricingFab = findViewById(R.id.fabLatestPricing)
         updateModelSelectorText()
+        latestPricing = pricingRepository.getCachedPricing()
+        updatePricingFabState()
 
         val gridLayoutManager = GridLayoutManager(this, 1)
         gridLayoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
@@ -102,12 +113,14 @@ class HomePage : AppCompatActivity() {
         val openModelSelector = View.OnClickListener { showModelSelectionDialog() }
         modelSelectorButton.setOnClickListener(openModelSelector)
         modelSelectorArrow.setOnClickListener(openModelSelector)
+        pricingFab.setOnClickListener { showLatestPricingSheet() }
     }
 
     override fun onResume() {
         super.onResume()
         updateModelSelectorText()
         loadHistorySessions()
+        refreshLatestPricing(force = false)
     }
 
     private fun updateModelSelectorText() {
@@ -149,6 +162,7 @@ class HomePage : AppCompatActivity() {
                             sourceLabel = if (session.sourceType == AnalysisSourceType.SCAN) "Scan" else "Upload",
                             status = "${session.detectionCount} copra analyzed",
                             gradeSummary = "Grades  I:${session.grade1Count}  II:${session.grade2Count}  III:${session.grade3Count}",
+                            pricingSummary = "Estimated price per kg: ${PricingFormatter.formatBatchPrice(session.pricing)}",
                             date = historyRepository.formatDate(session.createdAt),
                             grade1Count = session.grade1Count,
                             grade2Count = session.grade2Count,
@@ -247,5 +261,155 @@ class HomePage : AppCompatActivity() {
                 )
             }
             .show()
+    }
+
+    private fun refreshLatestPricing(force: Boolean) {
+        latestPricing = pricingRepository.getCachedPricing()
+        updatePricingFabState()
+        if (!pricingRepository.isConfigured()) return
+        if (!force && !pricingRepository.shouldRefresh(HOME_REFRESH_STALE_MS)) return
+
+        pricingRepository.refreshLatestPricing(
+            onComplete = { pricing ->
+                latestPricing = pricing
+                updatePricingFabState()
+                loadHistorySessions()
+            },
+            onError = { throwable, cached ->
+                latestPricing = cached ?: latestPricing
+                updatePricingFabState()
+                Log.w(TAG, "Pricing refresh failed; using cached pricing if available", throwable)
+            },
+            onSkipped = { }
+        )
+    }
+
+    private fun updatePricingFabState() {
+        pricingFab.alpha = if (latestPricing != null || pricingRepository.isConfigured()) 1f else 0.65f
+    }
+
+    private fun showLatestPricingSheet() {
+        val cachedPricing = latestPricing ?: pricingRepository.getCachedPricing()
+        if (cachedPricing == null && !pricingRepository.isConfigured()) {
+            Toast.makeText(
+                this,
+                "Set PRICING_API_BASE_URL for this build before fetching pricing.",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        val dialog = BottomSheetDialog(this, R.style.BottomSheetStyle)
+        val view = layoutInflater.inflate(R.layout.bottom_sheet_latest_pricing, null)
+        dialog.setContentView(view)
+
+        view.findViewById<ImageView>(R.id.btnClosePricingSheet).setOnClickListener { dialog.dismiss() }
+        val refreshButton = view.findViewById<MaterialButton>(R.id.btnRefreshPricing)
+        val refreshHint = view.findViewById<TextView>(R.id.tvPricingRefreshHint)
+        val refreshProgress = view.findViewById<ProgressBar>(R.id.progressRefreshPricing)
+
+        fun bindPricingSheet(pricing: LatestPricing?) {
+            view.findViewById<TextView>(R.id.tvPricingStatus).text = if (pricing != null) {
+                PricingFormatter.formatRelativeSyncAge(pricing.syncedAtMillis)
+            } else {
+                "No pricing saved on this device yet"
+            }
+            view.findViewById<TextView>(R.id.tvLatestGrade1Price).text =
+                PricingFormatter.formatPricePerKg(pricing?.grade1PricePerKg, pricing?.unit)
+            view.findViewById<TextView>(R.id.tvLatestGrade2Price).text =
+                PricingFormatter.formatPricePerKg(pricing?.grade2PricePerKg, pricing?.unit)
+            view.findViewById<TextView>(R.id.tvLatestGrade3Price).text =
+                PricingFormatter.formatPricePerKg(pricing?.grade3PricePerKg, pricing?.unit)
+            view.findViewById<TextView>(R.id.tvPricingCommodity).text =
+                pricing?.commodityName ?: "Latest copra pricing unavailable"
+            view.findViewById<TextView>(R.id.tvPricingEffectiveDate).text =
+                "Effective date: ${PricingFormatter.formatEffectiveDate(pricing?.effectiveDate)}"
+            view.findViewById<TextView>(R.id.tvPricingRecordedAt).text =
+                "Backend recorded: ${PricingFormatter.formatRecordedAt(pricing?.recordedAt)}"
+            view.findViewById<TextView>(R.id.tvPricingSyncedAt).text =
+                "Saved on device: ${PricingFormatter.formatSyncedAt(pricing?.syncedAtMillis)}"
+            view.findViewById<TextView>(R.id.tvPricingSource).text =
+                "Source: ${pricing?.sourceLabel ?: "Not provided"}"
+            view.findViewById<TextView>(R.id.tvPricingNotes).text =
+                pricing?.notes?.takeIf { it.isNotBlank() }
+                    ?: "This latest pricing snapshot will be reused when the app is offline."
+        }
+        fun updateRefreshUi(
+            isRefreshing: Boolean,
+            helperText: String,
+            buttonLabel: String
+        ) {
+            refreshButton.isEnabled = !isRefreshing
+            refreshButton.alpha = if (isRefreshing) 0.55f else 1f
+            refreshButton.text = buttonLabel
+            refreshHint.text = helperText
+            refreshProgress.visibility = if (isRefreshing) View.VISIBLE else View.GONE
+        }
+
+        bindPricingSheet(cachedPricing)
+        updateRefreshUi(
+            isRefreshing = pricingRepository.isRefreshInProgress(),
+            helperText = if (pricingRepository.isRefreshInProgress()) {
+                "We are already checking the latest backend pricing. The button will re-enable when it finishes."
+            } else {
+                if (cachedPricing != null) {
+                    "You can keep using this saved pricing offline, or refresh now to check for a newer update."
+                } else {
+                    "Download the latest pricing once so it stays available offline."
+                }
+            },
+            buttonLabel = if (pricingRepository.isRefreshInProgress()) "Refreshing..." else "Refresh Latest Pricing"
+        )
+
+        refreshButton.setOnClickListener {
+            if (!pricingRepository.isConfigured()) {
+                updateRefreshUi(
+                    isRefreshing = false,
+                    helperText = "Pricing endpoint is not configured for this build.",
+                    buttonLabel = "Refresh Latest Pricing"
+                )
+                return@setOnClickListener
+            }
+
+            updateRefreshUi(
+                isRefreshing = true,
+                helperText = "Checking the server for a newer pricing update...",
+                buttonLabel = "Refreshing..."
+            )
+            pricingRepository.refreshLatestPricing(
+                onComplete = { pricing ->
+                    latestPricing = pricing
+                    bindPricingSheet(pricing)
+                    updateRefreshUi(
+                        isRefreshing = false,
+                        helperText = "Latest pricing updated and saved on this device for offline use.",
+                        buttonLabel = "Refresh Latest Pricing"
+                    )
+                    loadHistorySessions()
+                },
+                onError = { _, fallback ->
+                    latestPricing = fallback ?: latestPricing
+                    bindPricingSheet(latestPricing)
+                    updateRefreshUi(
+                        isRefreshing = false,
+                        helperText = if (latestPricing != null) {
+                            "We could not reach the server, so the app is showing your last saved pricing."
+                        } else {
+                            "We could not reach the server and there is no saved pricing yet."
+                        },
+                        buttonLabel = "Refresh Latest Pricing"
+                    )
+                },
+                onSkipped = {
+                    updateRefreshUi(
+                        isRefreshing = true,
+                        helperText = "A refresh is already in progress. Please wait for it to finish.",
+                        buttonLabel = "Refreshing..."
+                    )
+                }
+            )
+        }
+
+        dialog.show()
     }
 }

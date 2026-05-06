@@ -17,4 +17,13 @@ public class AnalysisSessionEntity {
     public int grade2Count;
     public int grade3Count;
     public int detectionCount;
+    public Double pricingGrade1PricePerKg;
+    public Double pricingGrade2PricePerKg;
+    public Double pricingGrade3PricePerKg;
+    public Double computedPricePerKg;
+    public String pricingUnit;
+    public String pricingEffectiveDate;
+    public String pricingSourceLabel;
+    public String pricingRecordedAt;
+    public Long pricingSyncedAt;
 }

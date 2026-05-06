@@ -38,6 +38,7 @@ class AnalysisHistoryRepository private constructor(context: Context) {
 
     private val appContext = context.applicationContext
     private val dao = AppDatabase.getInstance(appContext).analysisSessionDao()
+    private val pricingRepository = PricingRepository.getInstance(appContext)
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
     private val historyRootDir: File
@@ -69,7 +70,9 @@ class AnalysisHistoryRepository private constructor(context: Context) {
     ) {
         executor.execute {
             try {
+                val cachedLatestPricing = pricingRepository.getCachedPricing()
                 val sessions = dao.getAllSessions().map { entity ->
+                    val sessionPricing = resolvePricing(entity, cachedLatestPricing)
                     AnalysisHistorySession(
                         id = entity.id,
                         createdAt = entity.createdAt,
@@ -80,7 +83,8 @@ class AnalysisHistoryRepository private constructor(context: Context) {
                         grade1Count = entity.grade1Count,
                         grade2Count = entity.grade2Count,
                         grade3Count = entity.grade3Count,
-                        detectionCount = entity.detectionCount
+                        detectionCount = entity.detectionCount,
+                        pricing = sessionPricing
                     )
                 }
                 mainHandler.post { onComplete(sessions) }
@@ -184,6 +188,12 @@ class AnalysisHistoryRepository private constructor(context: Context) {
         val grade1Count = readyItems.count { gradeBucket(it.classificationLabel) == 1 }
         val grade2Count = readyItems.count { gradeBucket(it.classificationLabel) == 2 }
         val grade3Count = readyItems.count { gradeBucket(it.classificationLabel) == 3 }
+        val sessionPricing = PricingCalculator.compute(
+            grade1Count = grade1Count,
+            grade2Count = grade2Count,
+            grade3Count = grade3Count,
+            latestPricing = pricingRepository.getCachedPricing()
+        )
 
         val sessionEntity = AnalysisSessionEntity().apply {
             createdAt = timestamp
@@ -195,6 +205,15 @@ class AnalysisHistoryRepository private constructor(context: Context) {
             this.grade2Count = grade2Count
             this.grade3Count = grade3Count
             detectionCount = items.size
+            pricingGrade1PricePerKg = sessionPricing?.grade1PricePerKg
+            pricingGrade2PricePerKg = sessionPricing?.grade2PricePerKg
+            pricingGrade3PricePerKg = sessionPricing?.grade3PricePerKg
+            computedPricePerKg = sessionPricing?.computedPricePerKg
+            pricingUnit = sessionPricing?.unit
+            pricingEffectiveDate = sessionPricing?.effectiveDate
+            pricingSourceLabel = sessionPricing?.sourceLabel
+            pricingRecordedAt = sessionPricing?.recordedAt
+            pricingSyncedAt = sessionPricing?.syncedAtMillis
         }
         val sessionId = dao.insertSession(sessionEntity)
 
@@ -223,6 +242,7 @@ class AnalysisHistoryRepository private constructor(context: Context) {
     }
 
     private fun AnalysisSessionWithItems.toDomain(): AnalysisHistorySession {
+        val resolvedPricing = resolvePricing(session, pricingRepository.getCachedPricing())
         return AnalysisHistorySession(
             id = session.id,
             createdAt = session.createdAt,
@@ -234,6 +254,7 @@ class AnalysisHistoryRepository private constructor(context: Context) {
             grade2Count = session.grade2Count,
             grade3Count = session.grade3Count,
             detectionCount = session.detectionCount,
+            pricing = resolvedPricing,
             items = items.sortedBy { it.displayOrder }.map { item ->
                 AnalysisHistoryItem(
                     id = item.id,
@@ -256,6 +277,38 @@ class AnalysisHistoryRepository private constructor(context: Context) {
                     displayOrder = item.displayOrder
                 )
             }
+        )
+    }
+
+    private fun resolvePricing(
+        entity: AnalysisSessionEntity,
+        cachedLatestPricing: LatestPricing?
+    ): AnalysisPricing? {
+        val hasPersistedPricing = entity.computedPricePerKg != null ||
+            entity.pricingGrade1PricePerKg != null ||
+            entity.pricingGrade2PricePerKg != null ||
+            entity.pricingGrade3PricePerKg != null
+
+        if (hasPersistedPricing) {
+            return AnalysisPricing(
+                grade1PricePerKg = entity.pricingGrade1PricePerKg,
+                grade2PricePerKg = entity.pricingGrade2PricePerKg,
+                grade3PricePerKg = entity.pricingGrade3PricePerKg,
+                computedPricePerKg = entity.computedPricePerKg,
+                unit = entity.pricingUnit,
+                effectiveDate = entity.pricingEffectiveDate,
+                sourceLabel = entity.pricingSourceLabel,
+                recordedAt = entity.pricingRecordedAt,
+                syncedAtMillis = entity.pricingSyncedAt,
+                classifiedCopraCount = entity.grade1Count + entity.grade2Count + entity.grade3Count
+            )
+        }
+
+        return PricingCalculator.compute(
+            grade1Count = entity.grade1Count,
+            grade2Count = entity.grade2Count,
+            grade3Count = entity.grade3Count,
+            latestPricing = cachedLatestPricing
         )
     }
 

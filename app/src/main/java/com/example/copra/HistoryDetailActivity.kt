@@ -40,6 +40,9 @@ class HistoryDetailActivity : AppCompatActivity() {
     private lateinit var txtModel: TextView
     private lateinit var txtCountSummary: TextView
     private lateinit var txtDetectionCount: TextView
+    private lateinit var txtComputedPricing: TextView
+    private lateinit var txtPricingMeta: TextView
+    private lateinit var txtPricingProportions: TextView
     private lateinit var loadingView: View
 
     private val decodeExecutor: ExecutorService = Executors.newSingleThreadExecutor()
@@ -60,11 +63,14 @@ class HistoryDetailActivity : AppCompatActivity() {
         txtModel = findViewById(R.id.tvHistoryModel)
         txtCountSummary = findViewById(R.id.tvHistorySummary)
         txtDetectionCount = findViewById(R.id.tvHistoryDetectionCount)
+        txtComputedPricing = findViewById(R.id.tvHistoryComputedPricing)
+        txtPricingMeta = findViewById(R.id.tvHistoryPricingMeta)
+        txtPricingProportions = findViewById(R.id.tvHistoryPricingProportions)
         loadingView = findViewById(R.id.historyLoadingView)
         btnViewResults.isEnabled = false
         btnDeleteHistory.isEnabled = false
 
-        findViewById<ImageView>(R.id.btnHistoryBack).setOnClickListener { finish() }
+        findViewById<View>(R.id.btnHistoryBack).setOnClickListener { finish() }
         btnViewResults.setOnClickListener { showResultsModal() }
         btnDeleteHistory.setOnClickListener { confirmDeleteCurrentHistory() }
 
@@ -111,6 +117,17 @@ class HistoryDetailActivity : AppCompatActivity() {
         txtModel.text = "Model: ${session.classificationModelName ?: "Model not recorded"}"
         txtCountSummary.text = historyRepository.buildCountSummary(session)
         txtDetectionCount.text = "${session.detectionCount} detected copra"
+        txtComputedPricing.text = "Estimated price per kg: ${PricingFormatter.formatBatchPrice(session.pricing)}"
+        txtPricingMeta.text = if (session.pricing != null) {
+            "Effective date: ${PricingFormatter.formatEffectiveDate(session.pricing.effectiveDate)}"
+        } else {
+            "Latest pricing has not been saved on this device yet."
+        }
+        txtPricingProportions.text = PricingFormatter.buildProportionSummary(
+            grade1Count = session.grade1Count,
+            grade2Count = session.grade2Count,
+            grade3Count = session.grade3Count
+        )
     }
 
     private fun decodeAssets(session: AnalysisHistorySession) {
@@ -244,14 +261,31 @@ class HistoryDetailActivity : AppCompatActivity() {
         val grade1Text = view.findViewById<TextView>(R.id.tvGrade1Count)
         val grade2Text = view.findViewById<TextView>(R.id.tvGrade2Count)
         val grade3Text = view.findViewById<TextView>(R.id.tvGrade3Count)
+        val pricingCard = view.findViewById<View>(R.id.cardPricingSummary)
+        val batchPriceValue = view.findViewById<TextView>(R.id.tvBatchPriceValue)
+        val batchPriceCaption = view.findViewById<TextView>(R.id.tvBatchPriceCaption)
+        val batchPriceMeta = view.findViewById<TextView>(R.id.tvBatchPriceMeta)
+        val batchPriceProportions = view.findViewById<TextView>(R.id.tvBatchPriceProportions)
 
         recycler.layoutManager = GridLayoutManager(this, 3)
+        recycler.isNestedScrollingEnabled = false
         val adapter = CapturedImageAdapter(emptyList())
         recycler.adapter = adapter
 
         grade1Text.text = session.grade1Count.toString()
         grade2Text.text = session.grade2Count.toString()
         grade3Text.text = session.grade3Count.toString()
+        bindPricingSummary(
+            pricing = session.pricing,
+            grade1Count = session.grade1Count,
+            grade2Count = session.grade2Count,
+            grade3Count = session.grade3Count,
+            pricingCard = pricingCard,
+            batchPriceValue = batchPriceValue,
+            batchPriceCaption = batchPriceCaption,
+            batchPriceMeta = batchPriceMeta,
+            batchPriceProportions = batchPriceProportions
+        )
 
         if (allItems.isEmpty()) {
             summarySection.visibility = View.GONE
@@ -300,6 +334,33 @@ class HistoryDetailActivity : AppCompatActivity() {
         val behavior = dialog.behavior
         behavior.peekHeight = (resources.displayMetrics.heightPixels * 0.5).toInt()
         behavior.state = BottomSheetBehavior.STATE_COLLAPSED
+    }
+
+    private fun bindPricingSummary(
+        pricing: AnalysisPricing?,
+        grade1Count: Int,
+        grade2Count: Int,
+        grade3Count: Int,
+        pricingCard: View,
+        batchPriceValue: TextView,
+        batchPriceCaption: TextView,
+        batchPriceMeta: TextView,
+        batchPriceProportions: TextView
+    ) {
+        pricingCard.visibility = View.VISIBLE
+        batchPriceValue.text = PricingFormatter.formatBatchPrice(pricing)
+        batchPriceCaption.text = PricingFormatter.buildBatchPriceCaption(pricing)
+        batchPriceMeta.text = if (pricing != null) {
+            "Effective date: ${PricingFormatter.formatEffectiveDate(pricing.effectiveDate)}\n" +
+                "Saved on device: ${PricingFormatter.formatSyncedAt(pricing.syncedAtMillis)}"
+        } else {
+            "Open Home while online to download the latest pricing for offline use."
+        }
+        batchPriceProportions.text = PricingFormatter.buildProportionSummary(
+            grade1Count = grade1Count,
+            grade2Count = grade2Count,
+            grade3Count = grade3Count
+        )
     }
 
     private fun confirmDeleteCurrentHistory() {

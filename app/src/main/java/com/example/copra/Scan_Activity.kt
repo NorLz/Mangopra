@@ -67,6 +67,7 @@ class ScanActivity : AppCompatActivity() {
     private lateinit var analysisExecutor: ExecutorService
     private lateinit var classificationExecutor: ExecutorService
     private lateinit var historyRepository: AnalysisHistoryRepository
+    private lateinit var pricingRepository: PricingRepository
     private lateinit var classificationModelStore: ClassificationModelStore
     private var detectorModel: BestFloat32Metadata? = null
     private var classifier: CopraClassifier? = null
@@ -111,6 +112,7 @@ class ScanActivity : AppCompatActivity() {
         analysisExecutor = Executors.newSingleThreadExecutor()
         classificationExecutor = Executors.newSingleThreadExecutor()
         historyRepository = AnalysisHistoryRepository.getInstance(applicationContext)
+        pricingRepository = PricingRepository.getInstance(applicationContext)
         classificationModelStore = ClassificationModelStore(applicationContext)
         selectedClassificationModel = classificationModelStore.getSelectedModel()
 
@@ -923,6 +925,7 @@ class ScanActivity : AppCompatActivity() {
         resultsSummarySection = view.findViewById(R.id.layoutSummarySection)
         resultsRecycler = view.findViewById<RecyclerView>(R.id.recyclerImages).apply {
             layoutManager = GridLayoutManager(this@ScanActivity, 3)
+            isNestedScrollingEnabled = false
         }
         resultsEmptyState = view.findViewById(R.id.tvEmptyState)
         resultsBtnPrev = view.findViewById(R.id.btnPrev)
@@ -979,6 +982,10 @@ class ScanActivity : AppCompatActivity() {
         val adapter = resultsAdapter ?: return
 
         val allItems = capturedDetections.toList()
+        val readyItems = allItems.filter { it.classificationStatus == ClassificationStatus.READY }
+        val grade1Count = readyItems.count { gradeBucket(it.classificationLabel) == 1 }
+        val grade2Count = readyItems.count { gradeBucket(it.classificationLabel) == 2 }
+        val grade3Count = readyItems.count { gradeBucket(it.classificationLabel) == 3 }
         if (allItems.isEmpty()) {
             summarySection.visibility = View.GONE
             emptyState.visibility = View.VISIBLE
@@ -995,6 +1002,18 @@ class ScanActivity : AppCompatActivity() {
         emptyState.visibility = View.GONE
         recycler.visibility = View.VISIBLE
         updateSummaryCounts(allItems)
+        bindPricingCard(
+            view = resultsDialog?.findViewById(R.id.bottomSheetRoot),
+            pricing = PricingCalculator.compute(
+                grade1Count = grade1Count,
+                grade2Count = grade2Count,
+                grade3Count = grade3Count,
+                latestPricing = pricingRepository.getCachedPricing()
+            ),
+            grade1Count = grade1Count,
+            grade2Count = grade2Count,
+            grade3Count = grade3Count
+        )
 
         val totalPages = max(1, (allItems.size + PAGE_SIZE - 1) / PAGE_SIZE)
         if (resultsCurrentPage > totalPages) {
@@ -1024,6 +1043,33 @@ class ScanActivity : AppCompatActivity() {
         resultsGrade1Count?.text = grade1.toString()
         resultsGrade2Count?.text = grade2.toString()
         resultsGrade3Count?.text = grade3.toString()
+    }
+
+    private fun bindPricingCard(
+        view: View?,
+        pricing: AnalysisPricing?,
+        grade1Count: Int,
+        grade2Count: Int,
+        grade3Count: Int
+    ) {
+        if (view == null) return
+
+        view.findViewById<TextView>(R.id.tvBatchPriceValue)?.text =
+            PricingFormatter.formatBatchPrice(pricing)
+        view.findViewById<TextView>(R.id.tvBatchPriceCaption)?.text =
+            PricingFormatter.buildBatchPriceCaption(pricing)
+        view.findViewById<TextView>(R.id.tvBatchPriceMeta)?.text = if (pricing != null) {
+            "Effective date: ${PricingFormatter.formatEffectiveDate(pricing.effectiveDate)}\n" +
+                "Saved on device: ${PricingFormatter.formatSyncedAt(pricing.syncedAtMillis)}"
+        } else {
+            "Open Home while online to download the latest pricing for offline use."
+        }
+        view.findViewById<TextView>(R.id.tvBatchPriceProportions)?.text =
+            PricingFormatter.buildProportionSummary(
+                grade1Count = grade1Count,
+                grade2Count = grade2Count,
+                grade3Count = grade3Count
+            )
     }
 
     private fun gradeBucket(label: String?): Int {

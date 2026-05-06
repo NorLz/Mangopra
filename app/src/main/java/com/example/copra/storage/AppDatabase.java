@@ -14,7 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
                 AnalysisSessionEntity.class,
                 AnalysisItemEntity.class
         },
-        version = 2,
+        version = 3,
         exportSchema = false
 )
 public abstract class AppDatabase extends RoomDatabase {
@@ -26,6 +26,20 @@ public abstract class AppDatabase extends RoomDatabase {
             database.execSQL("ALTER TABLE analysis_sessions ADD COLUMN classificationModelName TEXT");
             database.execSQL("ALTER TABLE analysis_items ADD COLUMN classificationModelKey TEXT");
             database.execSQL("ALTER TABLE analysis_items ADD COLUMN classificationModelName TEXT");
+        }
+    };
+    private static final Migration MIGRATION_2_3 = new Migration(2, 3) {
+        @Override
+        public void migrate(@NonNull SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE analysis_sessions ADD COLUMN pricingGrade1PricePerKg REAL");
+            database.execSQL("ALTER TABLE analysis_sessions ADD COLUMN pricingGrade2PricePerKg REAL");
+            database.execSQL("ALTER TABLE analysis_sessions ADD COLUMN pricingGrade3PricePerKg REAL");
+            database.execSQL("ALTER TABLE analysis_sessions ADD COLUMN computedPricePerKg REAL");
+            database.execSQL("ALTER TABLE analysis_sessions ADD COLUMN pricingUnit TEXT");
+            database.execSQL("ALTER TABLE analysis_sessions ADD COLUMN pricingEffectiveDate TEXT");
+            database.execSQL("ALTER TABLE analysis_sessions ADD COLUMN pricingSourceLabel TEXT");
+            database.execSQL("ALTER TABLE analysis_sessions ADD COLUMN pricingRecordedAt TEXT");
+            database.execSQL("ALTER TABLE analysis_sessions ADD COLUMN pricingSyncedAt INTEGER");
         }
     };
 
@@ -41,6 +55,7 @@ public abstract class AppDatabase extends RoomDatabase {
                                     "analysis_history.db"
                             )
                             .addMigrations(MIGRATION_1_2)
+                            .addMigrations(MIGRATION_2_3)
                             .fallbackToDestructiveMigration()
                             .build();
                 }

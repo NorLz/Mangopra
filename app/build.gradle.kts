@@ -3,6 +3,23 @@ plugins {
     id("com.chaquo.python")
 }
 
+fun normalizeBaseUrl(rawValue: String): String {
+    val trimmed = rawValue.trim().removeSuffix("/")
+    val withoutEndpoint = if (trimmed.endsWith("/pricing/latest", ignoreCase = true)) {
+        trimmed.removeSuffix("/pricing/latest")
+    } else {
+        trimmed
+    }
+    return "$withoutEndpoint/"
+}
+
+val pricingApiBaseUrl = normalizeBaseUrl(
+    providers.gradleProperty("PRICING_API_BASE_URL")
+        .orElse(providers.environmentVariable("PRICING_API_BASE_URL"))
+        .orNull
+        ?: "https://replace-me.onrender.com/"
+)
+
 android {
     namespace = "com.example.copra"
     compileSdk {
@@ -17,6 +34,7 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+        buildConfigField("String", "PRICING_API_BASE_URL", "\"$pricingApiBaseUrl\"")
 
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
@@ -39,6 +57,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
     buildFeatures {
+        buildConfig = true
         mlModelBinding = true
     }
 }

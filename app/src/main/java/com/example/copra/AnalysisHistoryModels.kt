@@ -13,6 +13,7 @@ data class AnalysisHistorySession(
     val grade2Count: Int,
     val grade3Count: Int,
     val detectionCount: Int,
+    val pricing: AnalysisPricing? = null,
     val items: List<AnalysisHistoryItem> = emptyList()
 )
 

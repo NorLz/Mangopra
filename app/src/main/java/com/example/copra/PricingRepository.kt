@@ -33,9 +33,20 @@ class PricingRepository private constructor(context: Context) {
     private val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val refreshLock = Any()
+    @Volatile
+    private var refreshInProgress = false
 
     fun isConfigured(): Boolean {
         return !BuildConfig.PRICING_API_BASE_URL.contains("replace-me", ignoreCase = true)
+    }
+
+    fun isRefreshInProgress(): Boolean = refreshInProgress
+
+    fun shouldRefresh(maxAgeMillis: Long): Boolean {
+        val cachedPricing = getCachedPricing() ?: return true
+        if (maxAgeMillis <= 0L) return true
+        return System.currentTimeMillis() - cachedPricing.syncedAtMillis >= maxAgeMillis
     }
 
     fun getCachedPricing(): LatestPricing? {
@@ -47,8 +58,17 @@ class PricingRepository private constructor(context: Context) {
 
     fun refreshLatestPricing(
         onComplete: (LatestPricing) -> Unit,
-        onError: ((Throwable, LatestPricing?) -> Unit)? = null
+        onError: ((Throwable, LatestPricing?) -> Unit)? = null,
+        onSkipped: (() -> Unit)? = null
     ) {
+        synchronized(refreshLock) {
+            if (refreshInProgress) {
+                mainHandler.post { onSkipped?.invoke() }
+                return
+            }
+            refreshInProgress = true
+        }
+
         executor.execute {
             val cached = getCachedPricing()
             try {
@@ -86,6 +106,10 @@ class PricingRepository private constructor(context: Context) {
             } catch (throwable: Throwable) {
                 Log.e(TAG, "Failed to refresh latest pricing", throwable)
                 mainHandler.post { onError?.invoke(throwable, cached) }
+            } finally {
+                synchronized(refreshLock) {
+                    refreshInProgress = false
+                }
             }
         }
     }
