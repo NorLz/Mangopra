@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">copra</string>
+    <string name="app_name">Mangopra</string>
     <string name="copra_quality_grading">Copra \n Quality Grading</string>
     <string name="description">Smart copra grading for fair pricing \n to know its true value.</string>
     <string name="description_hp">Automated Copra Quality Grading</string>
