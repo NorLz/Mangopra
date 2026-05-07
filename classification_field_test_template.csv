@@ -1,0 +1,5 @@
+batch_id,position_id,sample_id,actual_grade,predicted_grade,classification_latency_ms,source_mode,model_name,notes
+B01,P01,C001,Grade I,Grade I,34,SCAN,SqueezeNet Baseline,clear lighting
+B01,P02,C002,Grade I,Grade II,38,SCAN,SqueezeNet Baseline,shadow on crop
+B01,P03,C003,Grade II,Grade II,33,SCAN,SqueezeNet Baseline,normal
+B02,P01,C004,Grade III,Grade III,41,UPLOAD,SqueezeNet Baseline,uploaded image

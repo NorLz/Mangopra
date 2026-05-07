@@ -80,6 +80,7 @@ class ScanActivity : AppCompatActivity() {
     private var latestFrameDetections: List<FrameDetection> = emptyList()
     private var capturedDetections: MutableList<CapturedDetection> = mutableListOf()
     private var lastPersistedCaptureSessionId: Int = -1
+    private val focusedCapturedKeys = linkedSetOf<String>()
     @Volatile
     private var captureSessionId: Int = 0
     @Volatile
@@ -604,6 +605,7 @@ class ScanActivity : AppCompatActivity() {
         if (frameBitmap == null || detections.isEmpty()) {
             capturedDetections.clear()
             capturedFrameBitmap = null
+            focusedCapturedKeys.clear()
             resultsCurrentPage = 1
             renderResultsSheetIfVisible()
             return sessionId
@@ -654,6 +656,7 @@ class ScanActivity : AppCompatActivity() {
         }
 
         capturedDetections = crops
+        focusedCapturedKeys.clear()
         refreshCapturedOverlay()
         resultsCurrentPage = 1
         renderResultsSheetIfVisible()
@@ -807,6 +810,7 @@ class ScanActivity : AppCompatActivity() {
         captureSessionId += 1
         capturedDetections.clear()
         capturedFrameBitmap = null
+        focusedCapturedKeys.clear()
         resultsCurrentPage = 1
         dismissResultsBottomSheet()
 
@@ -846,11 +850,19 @@ class ScanActivity : AppCompatActivity() {
         )
     }
 
-    private fun refreshCapturedOverlay() {
+    private fun refreshCapturedOverlay(selectedKeys: Set<String> = focusedCapturedKeys) {
         if (state != ScanState.CAPTURED && state != ScanState.SCANNING) return
         if (capturedDetections.isEmpty()) return
 
-        overlay.detections = capturedDetections.map { captured ->
+        val visibleItems = if (selectedKeys.isNotEmpty()) {
+            capturedDetections.filter {
+                selectedKeys.contains(CapturedImageAdapter.selectionKeyForRect(it.sourceRect))
+            }
+        } else {
+            capturedDetections
+        }
+
+        overlay.detections = visibleItems.map { captured ->
             val (label, score, color) = when (captured.classificationStatus) {
                 ClassificationStatus.PENDING -> Triple(
                     "Classifying...",
@@ -935,8 +947,34 @@ class ScanActivity : AppCompatActivity() {
         resultsGrade1Count = view.findViewById(R.id.tvGrade1Count)
         resultsGrade2Count = view.findViewById(R.id.tvGrade2Count)
         resultsGrade3Count = view.findViewById(R.id.tvGrade3Count)
-        resultsAdapter = CapturedImageAdapter(emptyList())
+        val btnShowAllBoxes = view.findViewById<MaterialButton>(R.id.btnShowAllBoxes)
+        val tvFocusHint = view.findViewById<TextView>(R.id.tvFocusHint)
+        resultsAdapter = CapturedImageAdapter(
+            items = emptyList(),
+            initialSelectedKeys = focusedCapturedKeys,
+            onSelectionChanged = { selectedKeys ->
+                focusedCapturedKeys.clear()
+                focusedCapturedKeys.addAll(selectedKeys)
+                refreshCapturedOverlay()
+                tvFocusHint.text = if (selectedKeys.isEmpty()) {
+                    "Tap one or more crop cards to focus their bounding boxes on the image."
+                } else {
+                    "${selectedKeys.size} copra selected. Tap more cards to add focus, or Show All Boxes to reset."
+                }
+            }
+        )
         resultsRecycler?.adapter = resultsAdapter
+        tvFocusHint.text = if (focusedCapturedKeys.isEmpty()) {
+            "Tap one or more crop cards to focus their bounding boxes on the image."
+        } else {
+            "${focusedCapturedKeys.size} copra selected. Tap more cards to add focus, or Show All Boxes to reset."
+        }
+        btnShowAllBoxes.setOnClickListener {
+            focusedCapturedKeys.clear()
+            resultsAdapter?.clearSelection()
+            refreshCapturedOverlay()
+            tvFocusHint.text = "Tap one or more crop cards to focus their bounding boxes on the image."
+        }
 
         resultsBtnPrev?.setOnClickListener {
             if (resultsCurrentPage > 1) {

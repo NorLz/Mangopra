@@ -50,6 +50,8 @@ class HistoryDetailActivity : AppCompatActivity() {
     private val decodeExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private var currentSession: AnalysisHistorySession? = null
     private var displayItems: List<CapturedDetection> = emptyList()
+    private var currentFullBitmap: Bitmap? = null
+    private val focusedHistoryKeys = linkedSetOf<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -141,7 +143,7 @@ class HistoryDetailActivity : AppCompatActivity() {
             val fullBitmap = historyRepository.decodeBitmap(
                 session.fullImagePath,
                 resources.displayMetrics.widthPixels,
-                (resources.displayMetrics.heightPixels * 0.5f).toInt()
+                resources.displayMetrics.heightPixels
             )
             val items = session.items.map { item ->
                 val cropBitmap = historyRepository.decodeBitmap(item.cropImagePath, 256, 256)
@@ -173,6 +175,7 @@ class HistoryDetailActivity : AppCompatActivity() {
 
                 imageView.setImageBitmap(fullBitmap)
                 imageView.post {
+                    currentFullBitmap = fullBitmap
                     renderOverlay(session, fullBitmap)
                 }
                 btnViewResults.isEnabled = items.isNotEmpty()
@@ -181,14 +184,26 @@ class HistoryDetailActivity : AppCompatActivity() {
         }
     }
 
-    private fun renderOverlay(session: AnalysisHistorySession, bitmap: Bitmap) {
+    private fun renderOverlay(
+        session: AnalysisHistorySession,
+        bitmap: Bitmap,
+        selectedKeys: Set<String> = focusedHistoryKeys
+    ) {
         val previewWidth = imageView.width
         val previewHeight = imageView.height
         if (previewWidth <= 0 || previewHeight <= 0) {
             return
         }
 
-        val boxes = session.items.map { item ->
+        val visibleItems = if (selectedKeys.isNotEmpty()) {
+            session.items.filter {
+                selectedKeys.contains(CapturedImageAdapter.selectionKeyForRect(it.sourceRect))
+            }
+        } else {
+            session.items
+        }
+
+        val boxes = visibleItems.map { item ->
             BoundingBoxView.Box(
                 rect = mapFrameRectToPreview(
                     item.sourceRect,
@@ -264,6 +279,8 @@ class HistoryDetailActivity : AppCompatActivity() {
         val btnNext = view.findViewById<MaterialButton>(R.id.btnNext)
         val pageInput = view.findViewById<TextInputEditText>(R.id.etPageNumber)
         val totalPagesText = view.findViewById<TextView>(R.id.tvTotalPages)
+        val btnShowAllBoxes = view.findViewById<MaterialButton>(R.id.btnShowAllBoxes)
+        val tvFocusHint = view.findViewById<TextView>(R.id.tvFocusHint)
         val grade1Text = view.findViewById<TextView>(R.id.tvGrade1Count)
         val grade2Text = view.findViewById<TextView>(R.id.tvGrade2Count)
         val grade3Text = view.findViewById<TextView>(R.id.tvGrade3Count)
@@ -277,8 +294,37 @@ class HistoryDetailActivity : AppCompatActivity() {
 
         recycler.layoutManager = GridLayoutManager(this, 3)
         recycler.isNestedScrollingEnabled = false
-        val adapter = CapturedImageAdapter(emptyList())
+        var adapter: CapturedImageAdapter? = null
+        adapter = CapturedImageAdapter(
+            items = emptyList(),
+            initialSelectedKeys = focusedHistoryKeys,
+            onSelectionChanged = { selectedKeys ->
+                focusedHistoryKeys.clear()
+                focusedHistoryKeys.addAll(selectedKeys)
+                currentFullBitmap?.let { bitmap ->
+                    renderOverlay(session, bitmap)
+                }
+                tvFocusHint.text = if (selectedKeys.isEmpty()) {
+                    "Tap one or more crop cards to focus their bounding boxes on the image."
+                } else {
+                    "${selectedKeys.size} copra selected. Tap more cards to add focus, or Show All Boxes to reset."
+                }
+            }
+        )
         recycler.adapter = adapter
+        tvFocusHint.text = if (focusedHistoryKeys.isEmpty()) {
+            "Tap one or more crop cards to focus their bounding boxes on the image."
+        } else {
+            "${focusedHistoryKeys.size} copra selected. Tap more cards to add focus, or Show All Boxes to reset."
+        }
+        btnShowAllBoxes.setOnClickListener {
+            focusedHistoryKeys.clear()
+            adapter?.clearSelection()
+            currentFullBitmap?.let { bitmap ->
+                renderOverlay(session, bitmap)
+            }
+            tvFocusHint.text = "Tap one or more crop cards to focus their bounding boxes on the image."
+        }
 
         grade1Text.text = session.grade1Count.toString()
         grade2Text.text = session.grade2Count.toString()
@@ -317,7 +363,7 @@ class HistoryDetailActivity : AppCompatActivity() {
             fun renderPage(page: Int) {
                 val start = (page - 1) * PAGE_SIZE
                 val end = min(start + PAGE_SIZE, allItems.size)
-                adapter.updateData(allItems.subList(start, end))
+                adapter?.updateData(allItems.subList(start, end))
                 pageInput.setText(page.toString())
                 totalPagesText.text = "of $totalPages"
                 btnPrev.isEnabled = page > 1
@@ -341,6 +387,7 @@ class HistoryDetailActivity : AppCompatActivity() {
             }
         }
 
+        dialog.setOnDismissListener { Unit }
         dialog.show()
         val behavior = dialog.behavior
         behavior.peekHeight = (resources.displayMetrics.heightPixels * 0.5).toInt()

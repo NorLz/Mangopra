@@ -67,6 +67,7 @@ class UploadActivity : AppCompatActivity() {
     private var selectedClassificationModel: ClassificationModelOption = ClassificationModels.default
     private var uploadedDetections: MutableList<CapturedDetection> = mutableListOf()
     private var lastPersistedAnalysisSessionId = -1
+    private val focusedUploadKeys = linkedSetOf<String>()
 
     private val imagePicker =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -198,6 +199,7 @@ class UploadActivity : AppCompatActivity() {
         analysisSessionId += 1
         isAnalyzed = false
         uploadedDetections.clear()
+        focusedUploadKeys.clear()
         overlay.clearBoxes()
         overlay.visibility = View.GONE
         analyzeButton.text = "Analyze Quality"
@@ -343,8 +345,19 @@ class UploadActivity : AppCompatActivity() {
         )
     }
 
-    private fun renderDetectedOverlay(items: List<CapturedDetection>) {
-        val boxes = items.map { item ->
+    private fun renderDetectedOverlay(
+        items: List<CapturedDetection>,
+        selectedKeys: Set<String> = focusedUploadKeys
+    ) {
+        val visibleItems = if (selectedKeys.isNotEmpty()) {
+            items.filter {
+                selectedKeys.contains(CapturedImageAdapter.selectionKeyForRect(it.sourceRect))
+            }
+        } else {
+            items
+        }
+
+        val boxes = visibleItems.map { item ->
             val label = when (item.classificationStatus) {
                 ClassificationStatus.READY -> item.classificationLabel ?: "Unknown"
                 ClassificationStatus.FAILED -> "Unclassified"
@@ -383,6 +396,8 @@ class UploadActivity : AppCompatActivity() {
         val btnPrev = view.findViewById<MaterialButton>(R.id.btnPrev)
         val etPageNumber = view.findViewById<TextInputEditText>(R.id.etPageNumber)
         val tvTotalPages = view.findViewById<TextView>(R.id.tvTotalPages)
+        val btnShowAllBoxes = view.findViewById<MaterialButton>(R.id.btnShowAllBoxes)
+        val tvFocusHint = view.findViewById<TextView>(R.id.tvFocusHint)
         val batchPriceValue = view.findViewById<TextView>(R.id.tvBatchPriceValue)
         val batchPriceCaption = view.findViewById<TextView>(R.id.tvBatchPriceCaption)
         val batchPriceMeta = view.findViewById<TextView>(R.id.tvBatchPriceMeta)
@@ -424,8 +439,34 @@ class UploadActivity : AppCompatActivity() {
         latencyValue.text = ClassificationLatencyFormatter.formatDetail(latency)
         latencyMeta.text = ClassificationLatencyFormatter.formatMeta(latency)
 
-        val adapter = CapturedImageAdapter(emptyList())
+        var adapter: CapturedImageAdapter? = null
+
+        adapter = CapturedImageAdapter(
+            items = emptyList(),
+            initialSelectedKeys = focusedUploadKeys,
+            onSelectionChanged = { selectedKeys ->
+                focusedUploadKeys.clear()
+                focusedUploadKeys.addAll(selectedKeys)
+                renderDetectedOverlay(uploadedDetections)
+                tvFocusHint.text = if (selectedKeys.isEmpty()) {
+                    "Tap one or more crop cards to focus their bounding boxes on the image."
+                } else {
+                    "${selectedKeys.size} copra selected. Tap more cards to add focus, or Show All Boxes to reset."
+                }
+            }
+        )
         recycler.adapter = adapter
+        tvFocusHint.text = if (focusedUploadKeys.isEmpty()) {
+            "Tap one or more crop cards to focus their bounding boxes on the image."
+        } else {
+            "${focusedUploadKeys.size} copra selected. Tap more cards to add focus, or Show All Boxes to reset."
+        }
+        btnShowAllBoxes.setOnClickListener {
+            focusedUploadKeys.clear()
+            adapter?.clearSelection()
+            renderDetectedOverlay(uploadedDetections)
+            tvFocusHint.text = "Tap one or more crop cards to focus their bounding boxes on the image."
+        }
 
         if (allDetected.isEmpty()) {
             emptyState.visibility = View.VISIBLE
@@ -444,7 +485,7 @@ class UploadActivity : AppCompatActivity() {
             fun updatePage(page: Int) {
                 val start = (page - 1) * PAGE_SIZE
                 val end = min(start + PAGE_SIZE, allDetected.size)
-                adapter.updateData(allDetected.subList(start, end))
+                adapter?.updateData(allDetected.subList(start, end))
                 etPageNumber.setText(page.toString())
                 tvTotalPages.text = "of $totalPages"
                 btnPrev.isEnabled = page > 1
@@ -468,6 +509,9 @@ class UploadActivity : AppCompatActivity() {
             }
         }
 
+        dialog.setOnDismissListener {
+            Unit
+        }
         dialog.show()
         val behavior = dialog.behavior
         behavior.peekHeight = (resources.displayMetrics.heightPixels * 0.5).toInt()
@@ -519,6 +563,7 @@ class UploadActivity : AppCompatActivity() {
         uploadedDetections.clear()
         lastPersistedAnalysisSessionId = -1
         isAnalyzed = false
+        focusedUploadKeys.clear()
 
         uploadCard.visibility = View.GONE
         analyzeButton.visibility = View.GONE

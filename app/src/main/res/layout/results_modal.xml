@@ -328,16 +328,49 @@
         android:background="#E0E0E0"/>
 
     <!-- Section Title -->
-    <TextView
-        android:id="@+id/tvDetectedTitle"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Detected Copra Images"
-        android:fontFamily="@font/inter_bold"
-        android:textSize="14sp"
-        android:layout_marginStart="16dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
         android:layout_marginTop="12dp"
-        android:layout_marginBottom="8dp"/>
+        android:paddingHorizontal="16dp">
+
+        <TextView
+            android:id="@+id/tvDetectedTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Detected Copra Images"
+            android:fontFamily="@font/inter_bold"
+            android:textSize="14sp"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnShowAllBoxes"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:fontFamily="@font/inter_bold"
+            android:text="Show All Boxes"
+            android:textAllCaps="false"
+            android:textColor="#1C1B1F"
+            android:textSize="11sp"
+            app:backgroundTint="#FFF4E7"
+            app:cornerRadius="10dp"
+            app:strokeColor="#E7C7A7"
+            app:strokeWidth="1dp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvFocusHint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="8dp"
+        android:fontFamily="@font/inter_regular"
+        android:text="Tap a crop card to focus its bounding box on the image."
+        android:textColor="#666666"
+        android:textSize="11sp"/>
 
     <TextView
         android:id="@+id/tvEmptyStateUpload"
