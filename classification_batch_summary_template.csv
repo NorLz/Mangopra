@@ -1,0 +1,3 @@
+batch_id,source_mode,model_name,actual_grade1_count,actual_grade2_count,actual_grade3_count,predicted_grade1_count,predicted_grade2_count,predicted_grade3_count,average_latency_ms_per_copra,min_latency_ms,max_latency_ms,classified_copra_count,notes
+B01,SCAN,SqueezeNet Baseline,3,2,1,4,1,1,36.2,31,42,6,strong daylight
+B02,UPLOAD,SqueezeNet Baseline,2,2,2,2,3,1,39.5,34,48,6,uploaded batch image
